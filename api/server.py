@@ -20,12 +20,21 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
+try:
 
-from db import engine, SessionLocal, get_db
-from models import (Base, User, Staff, Patient, RMData, WCAttempt, CoachingData,
+    from .db import engine, SessionLocal, get_db
+    from .models import (Base, User, Staff, Patient, RMData, WCAttempt, CoachingData,
                     MonthlyCycle, MonthlyAttempt, FollowupAttempt,
                     WeeklyEntry, Dropdown, AuditLog, Notification, Task, Comment)
-import re  # For @mention parsing — Added 2026-05-05
+except ImportError:
+    from db import engine, SessionLocal, get_db
+    from models import (Base, User, Staff, Patient, RMData, WCAttempt, CoachingData,
+                    MonthlyCycle, MonthlyAttempt, FollowupAttempt,
+                    WeeklyEntry, Dropdown, AuditLog, Notification, Task, Comment)
+
+import re 
+
+ # For @mention parsing — Added 2026-05-05
 
 BASE_DIR = Path(__file__).parent
 app = FastAPI(title="Niva Bupa CRM")
