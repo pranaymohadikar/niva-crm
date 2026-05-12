@@ -1,0 +1,2632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Niva Bupa Ops CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#F7F6F3;--bg2:#FFFFFF;--bg3:#EEEDEB;--bg4:#E5E4E0;
+  --tx:#1A1A18;--tx2:#5C5B57;--tx3:#8A8985;
+  --acc:#2563EB;--acc2:#1D4ED8;--acc-bg:#EFF6FF;--acc-tx:#1E40AF;
+  --green:#059669;--green-bg:#ECFDF5;--green-tx:#065F46;
+  --amber:#D97706;--amber-bg:#FFFBEB;--amber-tx:#92400E;
+  --red:#DC2626;--red-bg:#FEF2F2;--red-tx:#991B1B;
+  --purple:#7C3AED;--purple-bg:#F5F3FF;--purple-tx:#5B21B6;
+  --border:#E5E4E0;--border2:#D4D3CF;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg:0 4px 12px rgba(0,0,0,0.08);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.5}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:16px}
+.logo{font-weight:700;font-size:17px;color:var(--acc);letter-spacing:-0.3px}
+.logo span{color:var(--tx3);font-weight:400;font-size:13px;margin-left:6px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.user-sel{display:flex;align-items:center;gap:8px;padding:6px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);font-size:13px;color:var(--tx2)}
+.user-sel select{border:none;background:none;font-family:inherit;font-size:13px;color:var(--tx);font-weight:500;cursor:pointer;outline:none}
+.tabs-bar{display:flex;align-items:center;gap:0;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{padding:12px 20px;font-size:13px;font-weight:500;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap}
+.tab:hover{color:var(--tx2);background:var(--bg)}
+.tab.active{color:var(--acc);border-bottom-color:var(--acc);background:var(--acc-bg)}
+.tab .count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:18px;border-radius:9px;font-size:11px;font-weight:600;background:var(--bg3);color:var(--tx3);margin-left:6px;padding:0 5px}
+.tab.active .count{background:var(--acc);color:#fff}
+.filter-bar{display:flex;align-items:center;gap:10px;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap}
+.filter-bar .search{flex:1;min-width:200px;max-width:280px;padding:7px 12px 7px 34px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A8985' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 10px center no-repeat;outline:none}
+.filter-bar .search:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,0.1)}
+.filter-sel{padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;color:var(--tx);background:var(--bg);cursor:pointer;outline:none}
+.btn{padding:7px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all 0.15s}
+.btn-primary{background:var(--acc);color:#fff}.btn-primary:hover{background:var(--acc2)}
+.btn-ghost{background:none;color:var(--tx2);border:1px solid var(--border)}.btn-ghost:hover{background:var(--bg3)}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-danger{background:var(--red);color:#fff}
+.kpi-strip{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.kpi{padding:4px 12px;border-radius:16px;font-size:12px;font-weight:500}
+.kpi-green{background:var(--green-bg);color:var(--green-tx)}
+.kpi-amber{background:var(--amber-bg);color:var(--amber-tx)}
+.kpi-red{background:var(--red-bg);color:var(--red-tx)}
+.kpi-blue{background:var(--acc-bg);color:var(--acc-tx)}
+.kpi-purple{background:var(--purple-bg);color:var(--purple-tx)}
+.main-area{display:flex;height:calc(100vh - 56px - 42px - 50px);overflow:hidden}
+.table-area{flex:1;overflow:auto}
+.side-panel{width:440px;border-left:1px solid var(--border);background:var(--bg2);overflow-y:auto;display:none;flex-shrink:0}
+.side-panel.open{display:block}
+table.dt{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+table.dt thead{position:sticky;top:0;z-index:10}
+table.dt th{padding:10px 14px;text-align:left;font-weight:600;font-size:12px;color:var(--tx3);text-transform:uppercase;letter-spacing:0.4px;background:var(--bg3);border-bottom:1px solid var(--border);white-space:nowrap}
+table.dt td{padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg2);vertical-align:top;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+table.dt tr:hover td{background:var(--acc-bg);cursor:pointer}
+table.dt tr.sel td{background:#DBEAFE;border-bottom-color:#BFDBFE}
+.pn{font-weight:600;color:var(--tx)}
+.ph{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--tx2)}
+.dc{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--tx2)}
+.pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap}
+.pill-green{background:var(--green-bg);color:var(--green-tx)}
+.pill-amber{background:var(--amber-bg);color:var(--amber-tx)}
+.pill-red{background:var(--red-bg);color:var(--red-tx)}
+.pill-blue{background:var(--acc-bg);color:var(--acc-tx)}
+.pill-purple{background:var(--purple-bg);color:var(--purple-tx)}
+.pill-gray{background:var(--bg3);color:var(--tx3)}
+.ct{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;background:var(--bg3);color:var(--tx2);margin:1px 2px}
+.dots{display:flex;gap:3px}
+.dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--border2)}
+.dot-g{background:var(--green);border-color:var(--green)}
+.dot-a{background:var(--amber);border-color:var(--amber)}
+.dot-r{background:var(--red);border-color:var(--red)}
+.sp-hd{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.sp-hd h3{font-size:16px;font-weight:600}
+.sp-cls{width:28px;height:28px;border-radius:6px;border:none;background:var(--bg3);cursor:pointer;font-size:16px;color:var(--tx3);display:flex;align-items:center;justify-content:center}
+.sp-cls:hover{background:var(--border)}
+.sp-sec{padding:16px 20px;border-bottom:1px solid var(--border)}
+.sp-sec h4{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--tx3);margin-bottom:10px}
+.sp-f{margin-bottom:12px}
+.sp-f label{display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px}
+.sp-f label .req{color:var(--red)}
+.sp-f select,.sp-f input,.sp-f textarea{width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;background:var(--bg);outline:none}
+.sp-f select:focus,.sp-f input:focus,.sp-f textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,0.1)}
+.sp-f textarea{resize:vertical;min-height:70px}
+.sp-f .ro{background:var(--bg3);color:var(--tx2);cursor:not-allowed;border-color:var(--bg4)}
+.sp-row{display:flex;gap:10px}.sp-row .sp-f{flex:1}
+.sp-actions{padding:16px 20px;display:flex;gap:10px}
+.att-log{margin-top:8px}
+.att-e{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:var(--radius);background:var(--bg);margin-bottom:6px;font-size:12px}
+.att-n{min-width:20px;height:20px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.att-b{flex:1;line-height:1.5}
+.att-d{font-family:'JetBrains Mono',monospace;color:var(--tx3)}
+.att-disp{font-weight:500}
+.new-att-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius);border:1px dashed var(--border2);background:none;font-size:12px;font-weight:500;color:var(--acc);cursor:pointer;width:100%;justify-content:center;margin-top:6px}
+.new-att-btn:hover{background:var(--acc-bg);border-color:var(--acc)}
+.mt{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.mt-btn{padding:6px 14px;border-radius:16px;font-size:12px;font-weight:500;cursor:pointer;background:var(--bg3);color:var(--tx3);border:none}
+.mt-btn.active{background:var(--acc);color:#fff}
+.mt-btn.done{background:var(--green-bg);color:var(--green-tx)}
+.mt-btn.inactive{background:var(--red-bg);color:var(--red-tx)}
+.cyc{padding:12px;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:10px}
+.cyc h5{font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px}
+.tab-content{display:none}.tab-content.active{display:block}
+.toast{position:fixed;bottom:20px;right:20px;padding:10px 20px;border-radius:var(--radius);font-size:13px;font-weight:500;z-index:999;animation:slideIn .3s ease;box-shadow:var(--shadow-lg)}
+.toast-ok{background:var(--green);color:#fff}
+.toast-err{background:var(--red);color:#fff}
+@keyframes slideIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes loadbar{0%{width:20%;margin-left:0}50%{width:60%;margin-left:20%}100%{width:20%;margin-left:80%}}
+.loading{display:flex;align-items:center;justify-content:center;height:200px;color:var(--tx3);font-size:14px}
+.info-box{padding:12px 16px;background:var(--acc-bg);border-radius:var(--radius);font-size:12px;color:var(--acc-tx);line-height:1.5;margin:8px 0}
+.dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;padding:24px}
+.dash-card{padding:20px;background:var(--bg2);border-radius:var(--radius-lg);border:1px solid var(--border)}
+.dash-card .label{font-size:12px;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.dash-card .val{font-size:32px;font-weight:700;margin:8px 0}
+.dash-card .sub{font-size:12px;color:var(--tx2)}
+.dash-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 24px 24px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.bar-label{width:110px;font-size:13px;color:var(--tx)}
+.bar-track{flex:1;height:20px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px}
+.bar-val{min-width:30px;font-size:12px;color:var(--tx2);text-align:right}
+.empty-state{text-align:center;padding:60px 20px;color:var(--tx3)}
+.empty-state h3{font-size:16px;margin-bottom:8px;color:var(--tx2)}
+/* Login screen — Added 2026-05-04 */
+.login-screen{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:500}
+.login-box{width:360px;padding:32px;background:var(--bg2);border-radius:var(--radius-lg);border:1px solid var(--border);box-shadow:var(--shadow-lg)}
+.login-box h2{font-size:20px;font-weight:700;color:var(--acc);margin-bottom:4px}
+.login-box p{font-size:13px;color:var(--tx3);margin-bottom:20px}
+.login-box .sp-f{margin-bottom:14px}
+.login-box .sp-f label{display:block;font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:4px}
+.login-box .sp-f input{width:100%;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border);font-size:14px;font-family:inherit;outline:none}
+.login-box .sp-f input:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,0.1)}
+.login-box .btn{width:100%;padding:10px;font-size:14px}
+.login-err{color:var(--red);font-size:12px;margin-top:8px;display:none}
+.crm-app{display:none}
+.user-info{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--tx2)}
+.user-info b{color:var(--tx);font-weight:500}
+.user-info .role-badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:var(--acc-bg);color:var(--acc-tx)}
+.btn-logout{padding:5px 12px;border-radius:var(--radius);border:1px solid var(--border);background:none;font-size:12px;color:var(--tx3);cursor:pointer;font-family:inherit}
+.btn-logout:hover{background:var(--red-bg);color:var(--red-tx);border-color:var(--red)}
+/* Patient 360 view — Added 2026-05-08 */
+.v360-btn{padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:none;font-size:11px;font-weight:500;color:var(--acc);cursor:pointer;white-space:nowrap}
+.v360-btn:hover{background:var(--acc-bg);border-color:var(--acc)}
+.v360-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.v360-hdr h3{font-size:16px;font-weight:600;flex:1}
+.v360-pills{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.v360-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;border-bottom:1px solid var(--bg3)}
+.v360-row:last-child{border-bottom:none}
+.v360-label{color:var(--tx3);font-weight:500}
+.v360-val{color:var(--tx);font-weight:500;text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.v360-mod{padding:12px;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:8px}
+.v360-mod-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.v360-mod-hd .mod-title{font-size:13px;font-weight:600}
+.v360-dots{display:flex;gap:3px;align-items:center}
+.v360-dots .dot{width:10px;height:10px}
+.v360-notes{font-size:11px;color:var(--tx2);margin-top:4px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.v360-jump{display:flex;flex-wrap:wrap;gap:6px}
+.v360-jump button{flex:1;min-width:100px}
+/* Right-click context menu — Added 2026-05-08 */
+.ctx-menu{position:fixed;z-index:300;min-width:180px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:4px 0;display:none}
+.ctx-menu.open{display:block}
+.ctx-item{padding:8px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--tx)}
+.ctx-item:hover{background:var(--acc-bg);color:var(--acc)}
+.ctx-item .ctx-icon{font-size:14px;width:18px;text-align:center}
+.ctx-sep{height:1px;background:var(--border);margin:4px 0}
+/* Comment section in side panel — Added 2026-05-08 */
+.cmt-section{padding:16px 20px;border-bottom:1px solid var(--border)}
+.cmt-section h4{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--tx3);margin-bottom:10px}
+.cmt-list{max-height:240px;overflow-y:auto;margin-bottom:10px}
+.cmt-item{padding:8px 10px;border-radius:var(--radius);background:var(--bg);margin-bottom:6px;font-size:12px;line-height:1.5}
+.cmt-item .cmt-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.cmt-item .cmt-user{font-weight:600;color:var(--tx)}
+.cmt-item .cmt-role{padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600;background:var(--bg3);color:var(--tx3);margin-left:6px}
+.cmt-item .cmt-time{font-size:10px;color:var(--tx3)}
+.cmt-item .cmt-text{color:var(--tx2);word-break:break-word}
+.cmt-item .cmt-text .mention{color:var(--acc);font-weight:600}
+.cmt-item .cmt-del{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:11px;padding:0 4px}
+.cmt-item .cmt-del:hover{color:var(--red)}
+.cmt-empty{text-align:center;padding:12px;color:var(--tx3);font-size:12px}
+/* @mention input wrapper — Added 2026-05-08 */
+.cmt-input-wrap{position:relative}
+.cmt-input-wrap textarea{width:100%;padding:8px 10px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;background:var(--bg);outline:none;resize:vertical;min-height:50px}
+.cmt-input-wrap textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,0.1)}
+.cmt-actions{display:flex;gap:6px;margin-top:6px;align-items:center}
+.cmt-actions .cmt-hint{font-size:11px;color:var(--tx3);flex:1}
+.mention-dropdown{position:absolute;bottom:100%;left:0;right:0;max-height:160px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);z-index:250;display:none}
+.mention-dropdown.open{display:block}
+.mention-opt{padding:7px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.mention-opt:hover,.mention-opt.active{background:var(--acc-bg);color:var(--acc)}
+.mention-opt .mo-name{font-weight:500}
+.mention-opt .mo-role{font-size:10px;color:var(--tx3);margin-left:auto}
+/* Notification bell — Added 2026-05-05 */
+.notif-wrap{position:relative}
+.notif-bell{background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;position:relative}
+.notif-badge{position:absolute;top:-2px;right:0;min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px}
+.notif-panel{position:absolute;top:36px;right:0;width:360px;max-height:420px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:200;display:none}
+.notif-panel.open{display:block}
+.notif-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.notif-header h4{font-size:14px;font-weight:600}
+.notif-item{padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;font-size:12px}
+.notif-item:hover{background:var(--bg)}
+.notif-item.unread{background:var(--acc-bg)}
+.notif-item .n-sender{font-weight:600;color:var(--tx)}
+.notif-item .n-msg{color:var(--tx2);margin-top:2px;line-height:1.4}
+.notif-item .n-meta{color:var(--tx3);font-size:11px;margin-top:4px}
+.notif-empty{padding:24px;text-align:center;color:var(--tx3);font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN — Added 2026-05-04 -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box" id="loginBox">
+    <h2>Niva Bupa CRM</h2>
+    <p>Sign in to continue</p>
+    <div class="sp-f"><label>Username</label><input id="login-user" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="sp-f"><label>Password</label><input id="login-pass" type="password" placeholder="Enter password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn btn-primary" onclick="doLogin()">Sign in</button>
+    <div class="login-err" id="loginErr"></div>
+    <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--tx3)">
+      Don't have an account? <a href="#" onclick="showRegister();return false" style="color:var(--acc);font-weight:500;text-decoration:none">Register</a>
+    </div>
+  </div>
+  <div class="login-box" id="registerBox" style="display:none">
+    <h2>Register</h2>
+    <p>Create a new account</p>
+    <div class="sp-f"><label>Full Name</label><input id="reg-name" placeholder="Your full name" onkeydown="if(event.key==='Enter')doRegister()"></div>
+    <div class="sp-f"><label>Username</label><input id="reg-user" placeholder="Choose a username" onkeydown="if(event.key==='Enter')doRegister()"></div>
+    <div class="sp-f"><label>Password</label><input id="reg-pass" type="password" placeholder="Set a password" onkeydown="if(event.key==='Enter')doRegister()"></div>
+    <div class="sp-f"><label>Role</label>
+      <select id="reg-role" style="width:100%;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border);font-size:14px;font-family:inherit">
+        <option value="">— Select your role —</option>
+        <option value="sales">Inside Sales</option>
+        <option value="rm">Health Partner (RM)</option>
+        <option value="diet">Nutritionist</option>
+        <option value="wellness">Psychologist</option>
+        <option value="physio">Physiotherapist</option>
+        <option value="cs">CS Agent</option>
+        <option value="visit">Visit Team</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="doRegister()">Create account</button>
+    <div class="login-err" id="regErr"></div>
+    <div style="text-align:center;margin-top:16px;font-size:13px;color:var(--tx3)">
+      Already have an account? <a href="#" onclick="showLogin();return false" style="color:var(--acc);font-weight:500;text-decoration:none">Sign in</a>
+    </div>
+  </div>
+</div>
+
+<!-- CRM APP (hidden until login) — Changed 2026-05-04 -->
+<div class="crm-app" id="crmApp">
+
+<!-- Loading overlay — Added 2026-05-06 -->
+<div id="loadingOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:400;flex-direction:column;align-items:center;justify-content:center;gap:12px">
+  <div style="font-size:20px;font-weight:700;color:var(--acc)">Niva Bupa CRM</div>
+  <div style="font-size:14px;color:var(--tx3)">Loading patient data...</div>
+  <div style="width:200px;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:8px"><div style="width:60%;height:100%;background:var(--acc);border-radius:2px;animation:loadbar 1.5s ease infinite"></div></div>
+</div>
+
+<!-- TOPBAR — Changed 2026-05-04: replaced role/user dropdowns with logged-in display -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">Niva Bupa CRM <span>Ops Tracker</span></div>
+  </div>
+  <div class="topbar-right">
+    <div class="user-info">
+      <span id="exportBtnSlot"></span>
+      <span>Logged in as: <b id="dispUser"></b></span>
+      <span class="role-badge" id="dispRole"></span>
+    </div>
+    <div class="notif-wrap">
+      <button class="notif-bell" onclick="toggleNotifPanel()">🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span></button>
+      <div class="notif-panel" id="notifPanel">
+        <div class="notif-header"><h4>Notifications</h4><button class="btn btn-ghost btn-sm" onclick="markAllRead()">Mark all read</button></div>
+        <div id="notifList"></div>
+      </div>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">Logout</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar" id="tabsBar"></div>
+
+<!-- TAB CONTAINERS -->
+<div class="tab-content" id="tab-sales"></div>
+<div class="tab-content" id="tab-rm"></div>
+<div class="tab-content" id="tab-weekly"></div>
+<div class="tab-content" id="tab-diet"></div>
+<div class="tab-content" id="tab-wellness"></div>
+<div class="tab-content" id="tab-physio"></div>
+<div class="tab-content" id="tab-coaches"></div>
+<div class="tab-content" id="tab-tasks"></div>
+<div class="tab-content" id="tab-dashboard"></div>
+
+<!-- Right-click context menu — Added 2026-05-08 -->
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-item" onclick="ctx360()"><span class="ctx-icon">🔄</span> 360° View</div>
+  <div class="ctx-item" onclick="ctxAddComment()"><span class="ctx-icon">💬</span> Add Comment</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxCopyName()"><span class="ctx-icon">📋</span> Copy Patient Name</div>
+  <div class="ctx-item" onclick="ctxCopyPhone()"><span class="ctx-icon">📞</span> Copy Phone Number</div>
+</div>
+
+</div><!-- end crm-app — Added 2026-05-04 -->
+
+<script>
+// ═══════════════════════════════════════════════
+// GLOBAL STATE
+// ═══════════════════════════════════════════════
+let patients = [];
+let dropdowns = {};
+let currentTab = 'sales';
+let selectedPatientId = null;
+let currentUser = null; // {name, role, username} — Added 2026-05-04
+
+const API = '';  // same origin
+let allUsers = []; // All active users for @mention autocomplete — Added 2026-05-08
+let ctxPatientId = null; // Patient ID for context menu actions — Added 2026-05-08
+
+// Tab visibility — all roles see all tabs, edit access is controlled separately — Changed 2026-05-01
+const ROLE_TABS = {
+  sales:    ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
+  rm:       ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
+  diet:     ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
+  wellness: ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
+  physio:   ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
+  cs:       ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
+  visit:    ['sales','rm','weekly','diet','wellness','physio','coaches','dashboard'],  // No tasks tab — Added 2026-05-06
+  admin:    ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
+};
+
+const TAB_LABELS = {
+  sales:'Sales Data', rm:'RM', weekly:'RM Weekly', diet:'Nutritionist',
+  wellness:'Psychologist', physio:'Physiotherapist', coaches:'Coaches', tasks:'Tasks', dashboard:'Dashboard'
+};
+
+const CONDITION_COLORS = {
+  'Diabetes':'pill-purple','Cholesterol':'pill-blue','Weight Management':'pill-blue',
+  'Hypertension':'pill-amber','PCOS':'pill-amber','Pre-Diabetic':'pill-purple'
+};
+
+// ═══════════════════════════════════════════════
+// LOGIN / LOGOUT / REGISTER — Added 2026-05-05: register added
+// ═══════════════════════════════════════════════
+function showRegister() {
+  document.getElementById('loginBox').style.display = 'none';
+  document.getElementById('registerBox').style.display = 'block';
+  document.getElementById('regErr').style.display = 'none';
+}
+
+function showLogin() {
+  document.getElementById('registerBox').style.display = 'none';
+  document.getElementById('loginBox').style.display = 'block';
+  document.getElementById('loginErr').style.display = 'none';
+}
+
+async function doRegister() {
+  const name = document.getElementById('reg-name').value.trim();
+  const username = document.getElementById('reg-user').value.trim();
+  const password = document.getElementById('reg-pass').value;
+  const role = document.getElementById('reg-role').value;
+  const errEl = document.getElementById('regErr');
+  if(!name||!username||!password||!role){errEl.textContent='Fill all fields';errEl.style.display='block';return;}
+  try {
+    const r = await fetch(API+'/api/users',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name,username,password,role})});
+    if(!r.ok){const e=await r.json();errEl.textContent=e.detail||'Registration failed';errEl.style.display='block';return;}
+    errEl.style.display='none';
+    showLogin();
+    document.getElementById('login-user').value = username;
+    document.getElementById('loginErr').textContent = 'Account created! Sign in with your credentials.';
+    document.getElementById('loginErr').style.display = 'block';
+    document.getElementById('loginErr').style.color = 'var(--green)';
+  } catch(e){errEl.textContent='Server not reachable';errEl.style.display='block';}
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('loginErr');
+  if(!username||!password){errEl.textContent='Enter username and password';errEl.style.display='block';return;}
+  try {
+    const r = await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,password})});
+    if(!r.ok){errEl.textContent='Invalid username or password';errEl.style.display='block';return;}
+    const data = await r.json();
+    currentUser = data.user;
+    sessionStorage.setItem('crm_user', JSON.stringify(currentUser));
+    errEl.style.display='none';
+    showCRM();
+  } catch(e){errEl.textContent='Server not reachable';errEl.style.display='block';}
+}
+
+function doLogout() {
+  currentUser = null;
+  sessionStorage.removeItem('crm_user');
+  stopNotifPolling(); // Stop checking for notifications — Added 2026-05-05
+  document.getElementById('crmApp').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('login-pass').value='';
+}
+
+function showCRM() {
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('crmApp').style.display='block';
+  document.getElementById('dispUser').textContent = currentUser.name;
+  const roleLabels = {admin:'Admin',sales:'Inside Sales',rm:'Health Partner (RM)',diet:'Nutritionist',wellness:'Psychologist',physio:'Physiotherapist',cs:'CS Agent',visit:'Visit Team'};
+  document.getElementById('dispRole').textContent = roleLabels[currentUser.role]||currentUser.role;
+  document.getElementById('exportBtnSlot').innerHTML = '<button class="btn btn-ghost btn-sm" onclick="exportData()" style="margin-right:8px">Export Excel</button>';
+  // Show loading state immediately — Added 2026-05-06
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  init();
+  startNotifPolling();
+}
+
+// Export CRM data as Excel — Added 2026-05-05
+function exportData() {
+  toast('Generating export...');
+  window.open(API+'/api/export', '_blank');
+}
+
+// ═══════════════════════════════════════════════
+// NOTIFICATIONS — Added 2026-05-05
+// ═══════════════════════════════════════════════
+let notifInterval = null;
+
+async function loadNotifications() {
+  if(!currentUser?.id) return; // Guard: skip if not logged in or no user ID — Changed 2026-05-05
+  try {
+    // Get unread count
+    const cRes = await fetch(API+'/api/notifications/'+currentUser.id+'/unread');
+    const {count} = await cRes.json();
+    const badge = document.getElementById('notifBadge');
+    if(badge) {
+      badge.textContent = count;
+      badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+  } catch(e) {}
+}
+
+async function toggleNotifPanel() {
+  if(!currentUser?.id) return; // Guard — Changed 2026-05-05
+  const panel = document.getElementById('notifPanel');
+  if(panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    return;
+  }
+  panel.classList.add('open');
+  // Load full notification list
+  try {
+    const r = await fetch(API+'/api/notifications/'+currentUser.id);
+    const notifs = await r.json();
+    const list = document.getElementById('notifList');
+    if(!notifs.length) {
+      list.innerHTML = '<div class="notif-empty">No notifications yet</div>';
+      return;
+    }
+    list.innerHTML = notifs.map(n => {
+      const timeAgo = getTimeAgo(n.created_at);
+      const sectionLabel = {rm:'RM',diet:'Nutritionist',wellness:'Psychologist',physio:'Physiotherapist',weekly:'RM Weekly',comment:'Comment'}[n.section]||n.section;
+      const msgText = n.section==='comment'
+        ? 'commented on '+esc(n.patient_name||'a patient')
+        : 'mentioned you in '+esc(n.patient_name||'a patient')+'\'s '+sectionLabel+' remarks';
+      return '<div class="notif-item '+(n.read?'':'unread')+'" onclick="openNotifPatient('+n.patient_id+',\''+n.section+'\','+n.id+')">'
+        + '<div class="n-sender">'+esc(n.sender)+'</div>'
+        + '<div class="n-msg">'+msgText+'</div>'
+        + '<div class="n-meta">'+timeAgo+'</div></div>';
+    }).join('');
+  } catch(e) { document.getElementById('notifList').innerHTML = '<div class="notif-empty">Failed to load</div>'; }
+}
+
+function getTimeAgo(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const mins = Math.floor((now - d) / 60000);
+  if(mins < 1) return 'Just now';
+  if(mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if(hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs / 24);
+  return days + 'd ago';
+}
+
+async function openNotifPatient(patientId, section, notifId) {
+  // Mark as read
+  await fetch(API+'/api/notifications/'+notifId+'/read', {method:'PUT'});
+  document.getElementById('notifPanel').classList.remove('open');
+  loadNotifications();
+  // Navigate to the right tab and open patient
+  const tabMap = {rm:'rm',diet:'diet',wellness:'wellness',physio:'physio',weekly:'weekly',comment:'rm'};
+  const tab = tabMap[section]||'rm';
+  switchTab(tab);
+  setTimeout(() => {
+    if(tab==='rm') openRMPanel(String(patientId));
+    else if(tab==='weekly') openWeeklyPanel(String(patientId));
+    else openCoachPanel(tab, String(patientId));
+  }, 200);
+}
+
+async function markAllRead() {
+  if(!currentUser?.id) return; // Guard — Changed 2026-05-05
+  await fetch(API+'/api/notifications/'+currentUser.id+'/readall', {method:'PUT'});
+  loadNotifications();
+  document.getElementById('notifList').innerHTML = '<div class="notif-empty">All caught up!</div>';
+}
+
+function startNotifPolling() {
+  loadNotifications();
+  if(notifInterval) clearInterval(notifInterval);
+  notifInterval = setInterval(loadNotifications, 30000); // Check every 30 seconds — Added 2026-05-05
+}
+
+function stopNotifPolling() {
+  if(notifInterval) { clearInterval(notifInterval); notifInterval = null; }
+}
+
+// ═══════════════════════════════════════════════
+// INIT — Changed 2026-05-04: removed role/user dropdown setup
+// ═══════════════════════════════════════════════
+async function init() {
+  try {
+    const [pRes, dRes, sRes, uRes] = await Promise.all([
+      fetch(API+'/api/patients'), fetch(API+'/api/dropdowns'), fetch(API+'/api/staff'),
+      fetch(API+'/api/users') // Load users for @mention autocomplete — Added 2026-05-08
+    ]);
+    patients = await pRes.json();
+    dropdowns = await dRes.json();
+    staffList = await sRes.json(); // Load staff on init so dashboard has it — Changed 2026-05-05
+    allUsers = await uRes.json(); // All active users — Added 2026-05-08
+  } catch(e) {
+    document.getElementById('crmApp').innerHTML = '<div class="loading">Failed to load data from server.</div>';
+    return;
+  }
+  document.getElementById('loadingOverlay').style.display = 'none'; // Hide loading — Added 2026-05-06
+  buildTabs();
+  handleRoleChange();
+  switchTab(currentTab);
+}
+
+// Check session on page load — Added 2026-05-04
+(function checkSession() {
+  const saved = sessionStorage.getItem('crm_user');
+  if(saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      if(!currentUser.id) { sessionStorage.removeItem('crm_user'); currentUser = null; return; } // Force re-login if no ID — Changed 2026-05-05
+      showCRM();
+    } catch(e) { sessionStorage.removeItem('crm_user'); }
+  }
+})()
+
+// ═══════════════════════════════════════════════
+// API HELPERS
+// ═══════════════════════════════════════════════
+async function apiPost(url, data) {
+  const r = await fetch(API+url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function apiPut(url, data) {
+  const r = await fetch(API+url, {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+function toast(msg, ok=true) {
+  const d = document.createElement('div');
+  d.className = 'toast '+(ok?'toast-ok':'toast-err');
+  d.textContent = msg;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(), 2500);
+}
+function getUser() { return currentUser?.name || 'Unknown'; } // Changed 2026-05-04: reads from login session
+function getRole() { return currentUser?.role || 'admin'; } // Changed 2026-05-04: reads from login session
+function pat(id) { return patients.find(p=>p.id===id); }
+
+// ═══════════════════════════════════════════════
+// ROLE-BASED EDIT PERMISSIONS — Added 2026-05-01
+// Each role can only edit their own section.
+// admin can edit everything. All others are read-only
+// for sections they don't own.
+// ═══════════════════════════════════════════════
+function canEdit(section) {
+  const role = getRole();
+  if(role==='admin') return true;
+  const perms = {
+    sales:    ['seed'],          // Inside Sales can only edit patient seed data
+    rm:       ['rm','weekly'],   // RM can edit RM tab + RM Weekly tab — Updated 2026-05-01
+    diet:     ['diet'],          // Diet coach edits diet section only
+    wellness: ['wellness'],      // Wellness coach edits wellness section only
+    physio:   ['physio'],        // Physio coach edits physio section only
+    cs:       ['cs'],            // CS agent edits CS fields across tabs
+  };
+  return (perms[role]||[]).includes(section);
+}
+
+// Helper: render a field as editable select or read-only input based on permission
+// Added 2026-05-01
+function editableSelect(id, list, selected, section, placeholder) {
+  if(canEdit(section)) {
+    return '<select id="'+id+'">'+optHtml(list, selected, placeholder)+'</select>';
+  }
+  return '<input class="ro" value="'+esc(selected)+'" readonly>';
+}
+
+// Helper: render editable input or read-only based on permission
+// Added 2026-05-01
+function editableInput(id, value, section, type) {
+  if(canEdit(section)) {
+    return '<input id="'+id+'" type="'+(type||'text')+'" value="'+(value||'')+'">';
+  }
+  return '<input class="ro" value="'+esc(value)+'" readonly>';
+}
+
+// Helper: render editable textarea or read-only based on permission
+// Added 2026-05-01
+function editableTextarea(id, value, section, placeholder, minH) {
+  if(canEdit(section)) {
+    return '<textarea id="'+id+'" placeholder="'+(placeholder||'')+'" style="min-height:'+(minH||'70')+'px">'+(esc(value)||'')+'</textarea>';
+  }
+  return '<textarea class="ro" readonly style="min-height:'+(minH||'70')+'px">'+(esc(value)||'')+'</textarea>';
+}
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function buildTabs() {
+  const bar = document.getElementById('tabsBar');
+  bar.innerHTML = '';
+  Object.keys(TAB_LABELS).forEach(k => {
+    const d = document.createElement('div');
+    d.className = 'tab';
+    d.dataset.tab = k;
+    d.innerHTML = TAB_LABELS[k]+' <span class="count" id="cnt-'+k+'">0</span>';
+    d.onclick = () => switchTab(k);
+    bar.appendChild(d);
+  });
+}
+
+function switchTab(name) {
+  currentTab = name;
+  selectedPatientId = null;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active',c.id==='tab-'+name));
+  renderTab(name);
+}
+
+function handleRoleChange() {
+  const role = getRole();
+  const allowed = ROLE_TABS[role] || ROLE_TABS.admin;
+  document.querySelectorAll('.tab').forEach(t => {
+    t.style.display = allowed.includes(t.dataset.tab) ? '' : 'none';
+  });
+  // Changed 2026-05-04: removed user dropdown — user comes from login session
+  if(!allowed.includes(currentTab)) switchTab(allowed[0]);
+  else renderTab(currentTab);
+}
+
+function updateCounts() {
+  const el = id => document.getElementById(id);
+  if(el('cnt-sales')) el('cnt-sales').textContent = patients.length;
+  if(el('cnt-rm')) el('cnt-rm').textContent = patients.length;
+  if(el('cnt-weekly')) {
+    const wk = patients.filter(p=>p.rm?.welcome_call_done==='Yes').length;
+    el('cnt-weekly').textContent = wk;
+  }
+  if(el('cnt-diet')) el('cnt-diet').textContent = patients.filter(p=>p.diet).length;
+  if(el('cnt-wellness')) el('cnt-wellness').textContent = patients.filter(p=>p.wellness).length;
+  if(el('cnt-physio')) el('cnt-physio').textContent = patients.filter(p=>p.physio).length;
+  const coachCount = (dropdowns.diet_coaches?.length||0)+(dropdowns.wellness_coaches?.length||0)+(dropdowns.physio_coaches?.length||0);
+  if(el('cnt-coaches')) el('cnt-coaches').textContent = coachCount;
+  if(el('cnt-tasks')) el('cnt-tasks').textContent = ''; // Updated on render — Added 2026-05-06
+  if(el('cnt-dashboard')) el('cnt-dashboard').textContent = '';
+}
+
+function renderAll() { updateCounts(); renderTab(currentTab); }
+
+// ═══════════════════════════════════════════════
+// TAB ROUTER
+// ═══════════════════════════════════════════════
+function renderTab(name) {
+  updateCounts();
+  const renderers = {sales:renderSales, rm:renderRM, weekly:renderWeekly, diet:renderDiet,
+    wellness:renderWellness, physio:renderPhysio, coaches:renderCoaches, tasks:renderTasks, dashboard:renderDashboard};
+  if(renderers[name]) renderers[name]();
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function condPill(c) { return '<span class="pill '+(CONDITION_COLORS[c]||'pill-gray')+'">'+esc(c||'—')+'</span>'; }
+// Plan status: Active if expiry >= today, Expired if past — Added 2026-05-06
+function planStatus(p) {
+  const exp = p.seed?.expiry_date;
+  if(!exp) return 'Unknown';
+  const today = new Date().toISOString().split('T')[0];
+  return exp >= today ? 'Active' : 'Expired';
+}
+function planStatusPill(p) {
+  const s = planStatus(p);
+  if(s==='Active') return '<span class="pill pill-green">Active</span>';
+  if(s==='Expired') return '<span class="pill pill-red">Expired</span>';
+  return '<span class="pill pill-gray">Unknown</span>';
+}
+function esc(s) { if(s==null) return '—'; const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
+function optHtml(list, selected, placeholder) {
+  let h = '<option value="">'+(placeholder||'— Select —')+'</option>';
+  (list||[]).forEach(v => { h += '<option'+(v===selected?' selected':'')+'>'+esc(v)+'</option>'; });
+  return h;
+}
+function attemptDotClass(remarks) {
+  if(!remarks) return '';
+  const r = remarks.toLowerCase();
+  if(r.includes('completed')&&!r.includes('partially')&&!r.includes('not')) return 'dot-g';
+  if(r.includes('partial')) return 'dot-a';
+  return 'dot-r';
+}
+function dispDotClass(disp) {
+  if(!disp) return '';
+  const d = disp.toLowerCase();
+  if(d==='completed') return 'dot-g';
+  if(d.includes('partial')) return 'dot-a';
+  return 'dot-r';
+}
+function monthStatus(months, m) {
+  const me = (months||[]).find(x=>x.month===m);
+  if(!me) return 'pill-gray';
+  const ad = (me.assessment_done||'').toLowerCase();
+  if(ad==='yes') return 'pill-green';
+  if(ad.includes('inactive')||ad.includes('no')) return 'pill-red';
+  if(me.attempts?.length>0) return 'pill-amber';
+  return 'pill-gray';
+}
+function monthIcon(months, m) {
+  const cls = monthStatus(months, m);
+  if(cls==='pill-green') return '<span class="pill pill-green" style="font-size:10px">✓</span>';
+  if(cls==='pill-red') return '<span class="pill pill-red" style="font-size:10px">✗</span>';
+  if(cls==='pill-amber') return '<span class="pill pill-amber" style="font-size:10px">⏳</span>';
+  return '<span class="pill pill-gray" style="font-size:10px">—</span>';
+}
+function statusPill(status) {
+  if(!status) return '<span class="pill pill-gray">—</span>';
+  const s = status.toLowerCase();
+  if(s.includes('inactive')) return '<span class="pill pill-red">'+esc(status)+'</span>';
+  if(s.includes('completed')) return '<span class="pill pill-green">'+esc(status)+'</span>';
+  if(s.includes('pending')) return '<span class="pill pill-amber">'+esc(status)+'</span>';
+  return '<span class="pill pill-blue">'+esc(status)+'</span>';
+}
+function filterPatients(list, filters) {
+  return list.filter(p => {
+    if(filters.search) {
+      const q = filters.search.toLowerCase();
+      const name = (p.seed.patient_name||'').toLowerCase();
+      const phone = (p.seed.contact_number||'');
+      if(!name.includes(q)&&!phone.includes(q)) return false;
+    }
+    if(filters.condition && p.seed.condition_type!==filters.condition) return false;
+    if(filters.duration && p.seed.plan_duration!==filters.duration) return false;
+    if(filters.hp && p.rm?.health_partner!==filters.hp) return false;
+    if(filters.wc) {
+      if(filters.wc==='Yes'&&p.rm?.welcome_call_done!=='Yes') return false;
+      if(filters.wc==='No'&&p.rm?.welcome_call_done==='Yes') return false;
+    }
+    if(filters.status && filters.section) {
+      const sec = p[filters.section];
+      if(sec?.status!==filters.status) return false;
+    }
+    if(filters.coach && filters.section) {
+      const sec = p[filters.section];
+      if(sec?.coach!==filters.coach) return false;
+    }
+    // Plan status filter — Added 2026-05-06
+    if(filters.planStatus && planStatus(p) !== filters.planStatus) return false;
+    return true;
+  });
+}
+
+// ═══════════════════════════════════════════════
+// SALES TAB
+// ═══════════════════════════════════════════════
+function renderSales() {
+  const c = document.getElementById('tab-sales');
+  const activePlans = patients.filter(p=>planStatus(p)==='Active').length; // Added 2026-05-06
+  const expiredPlans = patients.filter(p=>planStatus(p)==='Expired').length;
+
+  c.innerHTML = `
+    <div class="filter-bar">
+      <input class="search" placeholder="Search patient name or phone..." oninput="renderSalesTable()">
+      <select class="filter-sel" onchange="renderSalesTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
+      <select class="filter-sel" onchange="renderSalesTable()">${optHtml(dropdowns.durations,null,'All Durations')}</select>
+      <select class="filter-sel" onchange="renderSalesTable()">${optHtml(['Active','Expired','Unknown'],null,'All Plan Status')}</select>
+      ${canEdit('seed')?'<button class="btn btn-primary" onclick="openSalesAdd()" style="margin-left:auto">+ Add new patient</button>':''}
+      <div class="kpi-strip">
+        <span class="kpi kpi-green">Active: ${activePlans}</span>
+        <span class="kpi kpi-red">Expired: ${expiredPlans}</span>
+        <span class="kpi kpi-blue">Total: ${patients.length}</span>
+      </div>
+    </div>
+    <div class="main-area">
+      <div class="table-area" id="sales-table"></div>
+      <div class="side-panel" id="sp-sales"></div>
+    </div>`;
+
+  renderSalesTable();
+}
+
+function renderSalesTable() {
+  const c = document.getElementById('sales-table');
+  if(!c) return;
+  const sels = document.querySelectorAll('#tab-sales .filter-sel');
+  const search = document.querySelector('#tab-sales .search')?.value||'';
+  const cond = sels[0]?.value||'';
+  const dur = sels[1]?.value||'';
+  const ps = sels[2]?.value||''; // Plan status filter — Added 2026-05-06
+  const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
+  const filtered = filterPatients(sorted, {search, condition:cond, duration:dur, planStatus:ps||null});
+
+  let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Duration</th><th>Plan Price</th><th>Purchase Date</th><th>Expiry</th><th>Plan Status</th><th>WC Status</th><th>Actions</th></tr></thead><tbody>';
+  filtered.forEach((p,i) => {
+    const wcDone = p.rm?.welcome_call_done==='Yes';
+    h += `<tr onclick="openSalesEdit('${p.id}')">
+      <td>${i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td>
+      <td class="ph">${esc(p.seed.contact_number)}</td>
+      <td>${condPill(p.seed.condition_type)}</td><td>${esc(p.seed.plan_duration)}</td>
+      <td class="ph">${p.seed.plan_price?'₹'+parseInt(p.seed.plan_price).toLocaleString():'—'}</td>
+      <td class="dc">${esc(p.seed.plan_purchase_date)}</td><td class="dc">${esc(p.seed.expiry_date)}</td>
+      <td>${planStatusPill(p)}</td>
+      <td>${wcDone?'<span class="pill pill-green">WC Done</span>':'<span class="pill pill-amber">Pending</span>'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openSalesEdit('${p.id}')">Edit</button>${getRole()==='admin'?'<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red);margin-left:4px" onclick="event.stopPropagation();deletePatient('+p.id+',\''+esc(p.seed.patient_name).replace(/'/g,"\\'")+'\')">Delete</button>':''}</td>
+    </tr>`;
+  });
+  h += '</tbody></table>';
+  c.innerHTML = h;
+  attachContextMenu('sales-table'); // Right-click menu — Added 2026-05-08
+}
+
+function openSalesAdd() {
+  if(!canEdit('seed')){toast('Only Inside Sales and Admin can add patients',false);return;} // Guard — Added 2026-05-01
+  const sp = document.getElementById('sp-sales');
+  sp.className = 'side-panel open';
+  sp.innerHTML = `
+    <div class="sp-hd"><h3>Add new patient</h3><button class="sp-cls" onclick="closeSP('sp-sales')">✕</button></div>
+    <div class="sp-sec"><h4>Patient details</h4>
+      <div class="sp-f"><label>Patient Name <span class="req">*</span></label><input id="sa-name" placeholder="Full name"></div>
+      <div class="sp-row">
+        <div class="sp-f"><label>Contact Number <span class="req">*</span></label><input id="sa-phone" placeholder="10-digit mobile" type="tel"></div>
+        <div class="sp-f"><label>Alt Number</label><input id="sa-alt" placeholder="Optional"></div>
+      </div>
+    </div>
+    <div class="sp-sec"><h4>Plan details</h4>
+      <div class="sp-f"><label>Condition Type <span class="req">*</span></label><select id="sa-cond">${optHtml(dropdowns.conditions)}</select></div>
+      <div class="sp-row">
+        <div class="sp-f"><label>Plan Duration <span class="req">*</span></label><select id="sa-dur">${optHtml(dropdowns.durations)}</select></div>
+        <div class="sp-f"><label>Plan Price (₹) <span class="req">*</span></label><select id="sa-price">${optHtml((dropdowns.plan_prices||[]).map(String))}</select></div>
+      </div>
+      <div class="sp-row">
+        <div class="sp-f"><label>Plan Purchase Date <span class="req">*</span></label><input id="sa-date" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+        <div class="sp-f"><label>Expiry Date <span class="req">*</span></label><input id="sa-expiry" type="date"></div>
+      </div>
+      <div class="sp-f"><label>Remarks (Inside Sales)</label><textarea id="sa-remarks" placeholder="Optional notes about this patient..."></textarea></div>
+    </div>
+    <div class="info-box">On save, this patient appears in all tabs: RM, Diet, Wellness, Physio, and RM Weekly.</div>
+    <div class="sp-actions"><button class="btn btn-primary" style="flex:1" onclick="saveSalesAdd()">Save & create patient</button><button class="btn btn-ghost" onclick="closeSP('sp-sales')">Cancel</button></div>`;
+}
+
+async function saveSalesAdd() {
+  if(!canEdit('seed')){toast('No edit access',false);return;} // Guard — Added 2026-05-01
+  const name = document.getElementById('sa-name').value.trim();
+  const phone = document.getElementById('sa-phone').value.trim();
+  const cond = document.getElementById('sa-cond').value;
+  const dur = document.getElementById('sa-dur').value;
+  const price = document.getElementById('sa-price').value;
+  const date = document.getElementById('sa-date').value;
+  const expiry = document.getElementById('sa-expiry').value;
+  const remarks = document.getElementById('sa-remarks').value.trim(); // Sales remarks — Added 2026-05-01
+  const alt = document.getElementById('sa-alt').value.trim();
+  if(!name||!phone||!cond||!dur||!price||!date||!expiry){toast('Fill all required fields',false);return;}
+  if(phone.replace(/\D/g,'').length<10){toast('Phone must be 10+ digits',false);return;}
+  // Renewal check: block if phone already exists and name doesn't have "- Renew" or "- renew" — Added 2026-05-01
+  const existing = patients.find(p=>p.seed.contact_number===phone);
+  if(existing && !name.toLowerCase().includes('- renew') && !name.toLowerCase().includes('-renew')) {
+    toast('Patient with this phone already exists ('+existing.seed.patient_name+'). If this is a renewal, add "- Renew" to the name.',false);
+    return;
+  }
+  try {
+    const res = await apiPost('/api/patients',{
+      seed:{patient_name:name,contact_number:phone,alt_number:alt||null,condition_type:cond,
+        plan_purchase_date:date,plan_duration:dur,plan_price:price,expiry_date:expiry,sales_remarks:remarks||null},
+      user:getUser(),role:getRole()
+    });
+    patients.push(res.patient);
+    toast('Patient created ✓');
+    closeSP('sp-sales');
+    updateCounts(); renderSalesTable(); // Preserve filters — Changed 2026-05-08
+  } catch(e){toast('Save failed: '+e.message,false);}
+}
+
+// openSalesEdit — role-based: only Inside Sales and Admin can edit seed data — Changed 2026-05-01
+function openSalesEdit(id) {
+  const p = pat(id); if(!p) return;
+  selectedPatientId = id;
+  const sp = document.getElementById('sp-sales');
+  sp.className = 'side-panel open';
+  const ed = canEdit('seed'); // Only sales + admin can edit — Added 2026-05-01
+  sp.innerHTML = `
+    <div class="sp-hd"><h3>Edit — ${esc(p.seed.patient_name)}</h3><button class="v360-btn" onclick="open360('${id}','sp-sales')">360°</button><button class="sp-cls" onclick="closeSP('sp-sales')">✕</button></div>
+    <div class="sp-sec"><h4>Patient details</h4>
+      <div class="sp-f"><label>Patient Name</label>${editableInput('se-name',p.seed.patient_name,'seed')}</div>
+      <div class="sp-row">
+        <div class="sp-f"><label>Phone</label>${editableInput('se-phone',p.seed.contact_number,'seed','tel')}</div>
+        <div class="sp-f"><label>Alt Number</label>${editableInput('se-alt',p.seed.alt_number,'seed','tel')}</div>
+      </div>
+    </div>
+    <div class="sp-sec"><h4>Plan details</h4>
+      <div class="sp-f"><label>Condition Type</label>${editableSelect('se-cond',dropdowns.conditions,p.seed.condition_type,'seed')}</div>
+      <div class="sp-row">
+        <div class="sp-f"><label>Duration</label>${editableSelect('se-dur',dropdowns.durations,p.seed.plan_duration,'seed')}</div>
+        <div class="sp-f"><label>Plan Price</label>${editableSelect('se-price',(dropdowns.plan_prices||[]).map(String),p.seed.plan_price?.split('.')[0],'seed')}</div>
+      </div>
+      <div class="sp-row">
+        <div class="sp-f"><label>Purchase Date</label>${editableInput('se-date',p.seed.plan_purchase_date,'seed','date')}</div>
+        <div class="sp-f"><label>Expiry Date</label>${editableInput('se-expiry',p.seed.expiry_date,'seed','date')}</div>
+      </div>
+      <div class="sp-f"><label>Remarks (Inside Sales)</label>${editableTextarea('se-remarks',p.seed.sales_remarks,'seed','Sales notes...','50')}</div>
+    </div>
+    <div class="sp-sec"><h4>Lifecycle</h4>
+      <div style="font-size:13px;line-height:2">
+        <div style="display:flex;justify-content:space-between">RM Welcome Call ${p.rm?.welcome_call_done==='Yes'?'<span class="pill pill-green">Done</span>':'<span class="pill pill-amber">Pending</span>'}</div>
+        <div style="display:flex;justify-content:space-between">Nutritionist <span class="ct">${esc(p.diet?.coach)}</span></div>
+        <div style="display:flex;justify-content:space-between">Psychologist <span class="ct">${esc(p.wellness?.coach)}</span></div>
+        <div style="display:flex;justify-content:space-between">Physiotherapist <span class="ct">${esc(p.physio?.coach)}</span></div>
+      </div>
+    </div>
+    ${ed?'<div class="sp-actions"><button class="btn btn-primary" style="flex:1" onclick="saveSalesEdit(\''+id+'\')">Save changes</button><button class="btn btn-ghost" onclick="closeSP(\'sp-sales\')">Cancel</button></div>':''}
+    ${renderCommentSection(id)}`;
+  initPanelMentions(id);
+}
+
+async function saveSalesEdit(id) {
+  if(!canEdit('seed')){toast('No edit access',false);return;} // Guard — Added 2026-05-01
+  const fields = {patient_name:'se-name',contact_number:'se-phone',alt_number:'se-alt',
+    condition_type:'se-cond',plan_duration:'se-dur',plan_price:'se-price',plan_purchase_date:'se-date',expiry_date:'se-expiry',sales_remarks:'se-remarks'};
+  const p = pat(id); if(!p) return;
+  try {
+    for(const [f,elId] of Object.entries(fields)) {
+      const el = document.getElementById(elId);
+      if(!el) continue; // Skip if read-only (no ID) — Changed 2026-05-04
+      const v = el.value.trim() || null;
+      const existing = p.seed[f] || null;
+      if(v !== existing) {
+        await apiPut('/api/patients/update',{patient_id:id,section:'seed',field:f,value:v,user:getUser(),role:getRole()});
+        p.seed[f] = v;
+      }
+    }
+    toast('Saved ✓'); closeSP('sp-sales'); updateCounts(); renderSalesTable(); // Preserve filters — Changed 2026-05-08
+  } catch(e){toast('Save failed: '+e.message,false);}
+}
+
+// ═══════════════════════════════════════════════
+// RM TAB
+// ═══════════════════════════════════════════════
+function renderRM() {
+  const c = document.getElementById('tab-rm');
+  const wcd = patients.filter(p=>p.rm?.welcome_call_done==='Yes').length;
+  c.innerHTML = `
+    <div class="filter-bar">
+      <input class="search" placeholder="Search patient..." oninput="renderRMTable()">
+      <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
+      <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.durations,null,'All Durations')}</select>
+      <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.health_partners,null,'All HP')}</select>
+      <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Yes','No'],null,'All WC Status')}</select>
+      <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
+      <div class="kpi-strip">
+        <span class="kpi kpi-green">WC Done: ${wcd}</span>
+        <span class="kpi kpi-amber">Pending: ${patients.length-wcd}</span>
+      </div>
+    </div>
+    <div class="main-area"><div class="table-area" id="rm-table"></div><div class="side-panel" id="sp-rm"></div></div>`;
+  renderRMTable();
+}
+
+function renderRMTable() {
+  const c = document.getElementById('rm-table'); if(!c) return;
+  const sels = document.querySelectorAll('#tab-rm .filter-sel');
+  const search = document.querySelector('#tab-rm .search')?.value||'';
+  const filtered = filterPatients(patients,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:sels[4]?.value||null});
+
+  let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Plan</th><th>Purchase Date</th><th>HP</th><th>WC Attempts</th><th>WC Done</th><th>Nutritionist</th><th>Psychologist</th><th>Physiotherapist</th><th>Remarks</th></tr></thead><tbody>';
+  filtered.forEach((p,i) => {
+    const atts = p.rm?.wc_attempts||[];
+    let dots = atts.map(a=>'<span class="dot '+attemptDotClass(a.remarks)+'"></span>').join('');
+    h += `<tr class="${p.id===selectedPatientId?'sel':''}" onclick="openRMPanel('${p.id}')">
+      <td>${i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
+      <td>${condPill(p.seed.condition_type)}</td><td>${esc(p.seed.plan_duration)}</td><td class="dc">${esc(p.seed.plan_purchase_date)}</td>
+      <td><span class="ct">${esc(p.rm?.health_partner)}</span></td>
+      <td><div class="dots">${dots||'—'}</div></td>
+      <td>${p.rm?.welcome_call_done==='Yes'?'<span class="pill pill-green">Yes</span>':'<span class="pill pill-red">No</span>'}</td>
+      <td><span class="ct">${esc(p.diet?.coach)}</span></td>
+      <td><span class="ct">${esc(p.wellness?.coach)}</span></td>
+      <td><span class="ct">${esc(p.physio?.coach)}</span></td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(p.rm?.final_remarks)}</td></tr>`;
+  });
+  h += '</tbody></table>';
+  c.innerHTML = h;
+  attachContextMenu('rm-table'); // Right-click menu — Added 2026-05-08
+}
+
+// openRMPanel — role-based: only RM and Admin can edit RM fields, CS can edit CS fields — Changed 2026-05-01
+function openRMPanel(id) {
+  selectedPatientId = id;
+  const p = pat(id); if(!p) return;
+  const sp = document.getElementById('sp-rm');
+  sp.className = 'side-panel open';
+  const rm = p.rm||{};
+  const edRM = canEdit('rm');   // RM + Admin can edit — Added 2026-05-01
+  const edCS = canEdit('cs');   // CS + Admin can edit CS fields — Added 2026-05-01
+  let attHtml = (rm.wc_attempts||[]).map((a,i)=>`
+    <div class="att-e"><span class="att-n">${i+1}</span>
+      <div class="att-b"><span class="att-d">${esc(a.date)} ${esc(a.time)}</span> · <span class="att-disp">${esc(a.remarks)}</span></div>
+    </div>`).join('');
+
+  sp.innerHTML = `
+    <div class="sp-hd"><h3>${esc(p.seed.patient_name)}</h3><button class="v360-btn" onclick="open360('${id}','sp-rm')">360°</button><button class="sp-cls" onclick="closeSP('sp-rm')">✕</button></div>
+    <div class="sp-sec"><h4>Patient info (read-only)</h4>
+      <div class="sp-row"><div class="sp-f"><label>Phone</label><input class="ro" value="${esc(p.seed.contact_number)}" readonly></div><div class="sp-f"><label>Condition</label><input class="ro" value="${esc(p.seed.condition_type)}" readonly></div></div>
+      <div class="sp-row"><div class="sp-f"><label>Plan</label><input class="ro" value="${esc(p.seed.plan_duration)}" readonly></div><div class="sp-f"><label>Expiry</label><input class="ro" value="${esc(p.seed.expiry_date)}" readonly></div></div>
+    </div>
+    <div class="sp-sec"><h4>RM assignment</h4>
+      <div class="sp-row">
+        <div class="sp-f"><label>Health Partner</label>${editableSelect('rm-hp',dropdowns.health_partners,rm.health_partner,'rm')}</div>
+        <div class="sp-f"><label>WC Done</label>${editableSelect('rm-wc',['Yes','No'],rm.welcome_call_done,'rm')}</div>
+      </div>
+      <div class="sp-row">
+        <div class="sp-f"><label>WC Completion Date</label>${editableInput('rm-wcdate',rm.welcome_call_completion_date,'rm','date')}</div>
+        <div class="sp-f"><label>Metabolic Assessment</label>${editableSelect('rm-met',['Yes','No','NA'],rm.metabolic_assessment,'rm')}</div>
+      </div>
+    </div>
+    <div class="sp-sec"><h4>Welcome call attempts</h4>
+      <div class="att-log">${attHtml||'<div style="font-size:12px;color:var(--tx3)">No attempts yet</div>'}</div>
+      ${edRM?'<button class="new-att-btn" onclick="showNewAttemptForm(\'rm\',\'wc\')">+ Log new attempt</button>':''}
+      <div id="rm-new-att"></div>
+    </div>
+    <div class="sp-sec"><h4>Coach assignment</h4>
+      <div class="sp-f"><label>Nutritionist</label>${editableSelect('rm-dc',dropdowns.diet_coaches,p.diet?.coach,'rm')}</div>
+      <div class="sp-f"><label>Nutritionist appointment remarks</label>${editableInput('rm-dc-rem',rm.diet_coach_assignment,'rm')}</div>
+      <div class="sp-f"><label>Psychologist</label>${editableSelect('rm-wc2',dropdowns.wellness_coaches,p.wellness?.coach,'rm')}</div>
+      <div class="sp-f"><label>Psychologist appointment remarks</label>${editableInput('rm-wc2-rem',rm.wellness_coach_assignment,'rm')}</div>
+      <div class="sp-f"><label>Physiotherapist</label>${editableSelect('rm-pc',dropdowns.physio_coaches,p.physio?.coach,'rm')}</div>
+      <div class="sp-f"><label>Physiotherapist appointment remarks</label>${editableInput('rm-pc-rem',rm.physio_coach_assignment,'rm')}</div>
+    </div>
+    <div class="sp-sec"><h4>Remarks</h4><div class="sp-f">${editableTextarea('rm-remarks',rm.final_remarks,'rm','Notes...')}</div></div>
+    <div class="sp-sec"><h4>CS escalation</h4>
+      <div class="sp-row"><div class="sp-f"><label>CS Agent</label>${editableSelect('rm-cs',dropdowns.cs_agents,rm.cs_agent,'cs')}</div>
+        <div class="sp-f"><label>CS Call Date</label>${editableInput('rm-csdate',rm.cs_call_date,'cs','date')}</div></div>
+      <div class="sp-f"><label>CS Remarks</label>${editableTextarea('rm-csrem',rm.cs_remarks,'cs','CS agent notes...')}</div>
+    </div>
+    ${(edRM||edCS)?'<div class="sp-actions"><button class="btn btn-primary" style="flex:1" onclick="saveRM(\''+id+'\')">Save changes</button><button class="btn btn-ghost" onclick="closeSP(\'sp-rm\')">Cancel</button></div>':''}
+    ${renderCommentSection(id)}`;
+  initPanelMentions(id);
+  renderRMTable();
+}
+
+function showNewAttemptForm(mod, type) {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = now.toTimeString().slice(0,5);
+  const target = mod==='rm' ? 'rm-new-att' : mod+'-coach-new-att'; // Prefixed — Changed 2026-05-04
+  document.getElementById(target).innerHTML = `
+    <div style="margin-top:8px;padding:10px;border:1px solid var(--border);border-radius:var(--radius)">
+      <div class="sp-row">
+        <div class="sp-f"><label>Date</label><input id="att-date" type="date" value="${dateStr}"></div>
+        <div class="sp-f"><label>Time</label><input id="att-time" type="time" value="${timeStr}"></div>
+      </div>
+      <div class="sp-f"><label>Disposition</label><select id="att-disp">${optHtml(dropdowns.dispositions)}</select></div>
+      <div class="sp-f"><label>Remarks</label><input id="att-rem" placeholder="Notes..."></div>
+      <button class="btn btn-primary btn-sm" onclick="saveNewAttempt('${mod}','${type}')">Add attempt</button>
+    </div>`;
+}
+
+async function saveNewAttempt(mod, type) {
+  const section = mod==='rm'?'rm':mod;
+  if(!canEdit(section)){toast('No edit access',false);return;} // Guard — Added 2026-05-01
+  const id = selectedPatientId; if(!id) return;
+  const date = document.getElementById('att-date').value;
+  const time = document.getElementById('att-time').value;
+  const disp = document.getElementById('att-disp').value;
+  const rem = document.getElementById('att-rem').value;
+  if(!date||!disp){toast('Date and disposition required',false);return;}
+  const data = mod==='rm' ? {date,time,remarks:disp+(rem?' - '+rem:'')} : {date,time,disposition:disp};
+  const attType = mod==='rm' ? 'wc_attempts' : 'attempts';
+  try {
+    await apiPost('/api/patients/attempt',{patient_id:id,section:mod==='rm'?'rm':mod,month:type==='wc'?null:parseInt(type),attempt_type:attType,data,user:getUser(),role:getRole()});
+    const p = pat(id);
+    if(mod==='rm') { (p.rm.wc_attempts=p.rm.wc_attempts||[]).push(data); }
+    else {
+      const sec = p[mod]; const m = parseInt(type);
+      let me = (sec.months||[]).find(x=>x.month===m);
+      if(!me){me={month:m,attempts:[]};sec.months=sec.months||[];sec.months.push(me);}
+      (me.attempts=me.attempts||[]).push(data);
+    }
+    toast('Attempt logged ✓');
+    if(mod==='rm') openRMPanel(id); else openCoachPanel(mod,id);
+  } catch(e){toast('Failed: '+e.message,false);}
+}
+
+async function saveRM(id) {
+  if(!canEdit('rm')&&!canEdit('cs')){toast('You don\'t have edit access to RM',false);return;} // Guard — Added 2026-05-01
+  const p = pat(id); if(!p) return;
+  const updates = [
+    ['rm','health_partner','rm-hp'], ['rm','welcome_call_done','rm-wc'],
+    ['rm','welcome_call_completion_date','rm-wcdate'], ['rm','metabolic_assessment','rm-met'],
+    ['rm','final_remarks','rm-remarks'], ['rm','diet_coach_assignment','rm-dc-rem'],
+    ['rm','wellness_coach_assignment','rm-wc2-rem'], ['rm','physio_coach_assignment','rm-pc-rem'],
+    ['rm','cs_agent','rm-cs'], ['rm','cs_call_date','rm-csdate'], ['rm','cs_remarks','rm-csrem'],
+  ];
+  const coachUpdates = [['diet','coach','rm-dc'],['wellness','coach','rm-wc2'],['physio','coach','rm-pc']];
+  let changesMade = 0; // Track if anything actually saved — Added 2026-05-04
+  try {
+    for(const [sec,field,elId] of updates) {
+      const el = document.getElementById(elId);
+      if(!el) continue; // Element not in DOM (read-only mode) — skip — Changed 2026-05-04
+      const v = el.value.trim() || null;
+      const existing = p[sec]?.[field] || null;
+      if(v !== existing) {
+        console.log(`Saving: ${sec}.${field} = "${v}" (was "${existing}")`); // Debug — Added 2026-05-04
+        await apiPut('/api/patients/update',{patient_id:id,section:sec,field,value:v,user:getUser(),role:getRole()});
+        p[sec][field] = v;
+        changesMade++;
+      }
+    }
+    for(const [sec,field,elId] of coachUpdates) {
+      const el = document.getElementById(elId);
+      if(!el) continue; // Changed 2026-05-04
+      const v = el.value.trim() || null;
+      const existing = p[sec]?.[field] || null;
+      if(v !== existing) {
+        console.log(`Saving coach: ${sec}.${field} = "${v}" (was "${existing}")`); // Debug — Added 2026-05-04
+        await apiPut('/api/patients/update',{patient_id:id,section:sec,field,value:v,user:getUser(),role:getRole()});
+        p[sec][field] = v;
+        changesMade++;
+      }
+    }
+    if(changesMade > 0) {
+      // Auto-update coaching statuses if WC changed — Added 2026-05-04
+      for(const mod of ['diet','wellness','physio']) {
+        if(p[mod]) {
+          const newStatus = calcCoachStatus(mod, p);
+          const currentStatus = p[mod].status || null;
+          // Only update if current status is not manually set to inactive/others/Plan Ended
+          if(!currentStatus || (!currentStatus.toLowerCase().includes('inactive') && currentStatus !== 'others' && currentStatus !== 'Plan Ended')) {
+            if(newStatus !== currentStatus) {
+              console.log(`Auto-updating ${mod} status: "${currentStatus}" → "${newStatus}"`); // Debug
+              await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'status',value:newStatus,user:getUser(),role:getRole()});
+              p[mod].status = newStatus;
+            }
+          }
+        }
+      }
+      toast(`Saved ${changesMade} changes ✓`);
+    } else {
+      toast('No changes to save');
+    }
+    updateCounts(); renderRMTable(); // Preserve filters — Changed 2026-05-08
+    loadNotifications(); // Refresh bell badge — Added 2026-05-05
+    openRMPanel(id); // Re-open panel to show updated values — Added 2026-05-04
+  } catch(e){console.error('Save failed:',e);toast('Failed: '+e.message,false);}
+}
+
+// ═══════════════════════════════════════════════
+// COACHING TABS (Diet / Wellness / Physio)
+// ═══════════════════════════════════════════════
+// Head coaches — see team performance on their coaching tab — Added 2026-05-06
+const HEAD_COACHES = {
+  'Vrushali Athavale': 'diet',
+  'Vrushali': 'diet',
+  'Dr. Himval Pandya': 'wellness',
+  'Dr. Himval': 'wellness',
+  'Dr. Bhavan Bhavsar': 'physio',
+  'Dr. Bhavan': 'physio',
+};
+
+function isHeadCoach(mod) {
+  if(!currentUser) return false;
+  return HEAD_COACHES[currentUser.name] === mod;
+}
+
+function renderTeamPerformance(mod) {
+  const modLabel = {diet:'Nutritionist',wellness:'Psychologist',physio:'Physiotherapist'}[mod];
+  const coachList = dropdowns[mod+'_coaches']||[];
+  const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
+
+  // Build per-coach stats — Added 2026-05-06, Changed 2026-05-06: added per-month breakdown
+  const coachStats = coachList.map(name => {
+    const pts = patients.filter(p=>p[mod]?.coach===name);
+    let active=0, pending=0, inactive=0, monthsDone=0, monthsTotal=0;
+    const perMonth = {}; // {month: {done, total}} — Added 2026-05-06
+    mCols.forEach(m => { perMonth[m] = {done:0, total:0}; });
+    pts.forEach(p => {
+      const s = (p[mod]?.status||'').toLowerCase();
+      if(s.includes('inactive') || s==='plan ended') inactive++;
+      else if(s.includes('completed')) active++;
+      else pending++;
+      const months = p[mod]?.months||[];
+      mCols.forEach(m => {
+        monthsTotal++;
+        perMonth[m].total++;
+        const me = months.find(x=>x.month===m);
+        if(me && (me.assessment_done||'').toLowerCase()==='yes') { monthsDone++; perMonth[m].done++; }
+      });
+    });
+    const completionRate = monthsTotal ? Math.round(monthsDone/monthsTotal*100) : 0;
+    return {name, total:pts.length, active, pending, inactive, completionRate, monthsDone, monthsTotal, perMonth};
+  }).filter(c => c.total > 0).sort((a,b) => b.total - a.total);
+
+  // Team totals — Changed 2026-05-06: added per-month team totals
+  const teamTotal = coachStats.reduce((s,c) => s+c.total, 0);
+  const teamActive = coachStats.reduce((s,c) => s+c.active, 0);
+  const teamPending = coachStats.reduce((s,c) => s+c.pending, 0);
+  const teamInactive = coachStats.reduce((s,c) => s+c.inactive, 0);
+  // Active plan count — patients with non-expired plans — Added 2026-05-06
+  const teamActivePlans = coachStats.reduce((s,c) => s + patients.filter(p=>p[mod]?.coach===c.name && planStatus(p)==='Active').length, 0);
+  const teamExpiredPlans = teamTotal - teamActivePlans;
+  const teamMonthsDone = coachStats.reduce((s,c) => s+c.monthsDone, 0);
+  const teamMonthsTotal = coachStats.reduce((s,c) => s+c.monthsTotal, 0);
+  const teamCompletionRate = teamMonthsTotal ? Math.round(teamMonthsDone/teamMonthsTotal*100) : 0;
+  const teamPerMonth = {};
+  mCols.forEach(m => {
+    teamPerMonth[m] = {done: coachStats.reduce((s,c) => s+c.perMonth[m].done, 0),
+                       total: coachStats.reduce((s,c) => s+c.perMonth[m].total, 0)};
+  });
+
+  // Check inactive coaches from staff list — Added 2026-05-06
+  const inactiveCoaches = staffList.filter(s => {
+    const typeMap = {diet:'diet_coach',wellness:'wellness_coach',physio:'physio_coach'};
+    return s.type === typeMap[mod] && !s.active;
+  });
+
+  // Month cell helper — Added 2026-05-06
+  function monthCell(done, total) {
+    if(!total) return '<td style="font-size:11px;color:var(--tx3)">—</td>';
+    const pct = Math.round(done/total*100);
+    const color = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    return '<td><span style="font-weight:600;font-size:12px;color:'+color+'">'+done+'/'+total+'</span></td>';
+  }
+
+  // Month headers — Added 2026-05-06
+  const monthHeaders = mCols.map(m => '<th>M'+m+'</th>').join('');
+
+  let coachRows = coachStats.map(c => {
+    const isInactive = staffList.length > 0 && !staffList.some(s=>s.name===c.name && s.active);
+    const rateColor = c.completionRate >= 70 ? 'var(--green)' : c.completionRate >= 40 ? 'var(--amber)' : 'var(--red)';
+    const monthCells = mCols.map(m => monthCell(c.perMonth[m].done, c.perMonth[m].total)).join('');
+    return `<tr${isInactive?' style="opacity:0.5"':''}>
+      <td class="pn">${esc(c.name)}${isInactive?' <span style="font-size:10px;color:var(--red)">(inactive)</span>':''}</td>
+      <td>${c.total}</td>
+      <td><span class="pill pill-green" style="font-size:10px">${c.active}</span></td>
+      <td><span class="pill pill-amber" style="font-size:10px">${c.pending}</span></td>
+      <td><span class="pill pill-red" style="font-size:10px">${c.inactive}</span></td>
+      ${monthCells}
+      <td><span style="font-weight:600;color:${rateColor}">${c.completionRate}%</span></td>
+    </tr>`;
+  }).join('');
+
+  // Team total row — Added 2026-05-06
+  const teamMonthCells = mCols.map(m => monthCell(teamPerMonth[m].done, teamPerMonth[m].total)).join('');
+
+  return `
+    <div style="padding:16px 24px;background:var(--bg2);border-bottom:2px solid var(--acc)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:16px;font-weight:700;color:var(--acc)">Team Performance — ${modLabel}</div>
+        <div style="font-size:12px;color:var(--tx3)">Head Coach View</div>
+      </div>
+      <div style="display:flex;gap:16px;margin-bottom:16px">
+        <div class="dash-card" style="flex:1;padding:12px"><div class="label">Total patients assigned</div><div style="font-size:24px;font-weight:700">${teamTotal}</div></div>
+        <div class="dash-card" style="flex:1;padding:12px"><div class="label">Active plans</div><div style="font-size:24px;font-weight:700;color:var(--green)">${teamActivePlans}</div><div class="sub">${teamExpiredPlans} expired</div></div>
+        <div class="dash-card" style="flex:1;padding:12px"><div class="label">Active assessment</div><div style="font-size:24px;font-weight:700;color:var(--green)">${teamActive}</div></div>
+        <div class="dash-card" style="flex:1;padding:12px"><div class="label">Pending assessment</div><div style="font-size:24px;font-weight:700;color:var(--amber)">${teamPending}</div></div>
+        <div class="dash-card" style="flex:1;padding:12px"><div class="label">Inactive assessment</div><div style="font-size:24px;font-weight:700;color:var(--red)">${teamInactive}</div></div>
+        <div class="dash-card" style="flex:1;padding:12px"><div class="label">Overall rate</div><div style="font-size:24px;font-weight:700;color:${teamCompletionRate>=70?'var(--green)':teamCompletionRate>=40?'var(--amber)':'var(--red)'}">${teamCompletionRate}%</div></div>
+      </div>
+      <div style="overflow-x:auto">
+      <table class="dt" style="margin-bottom:0">
+        <thead><tr><th>Coach</th><th>Patients</th><th>Active Assess.</th><th>Pending Assess.</th><th>Inactive Assess.</th>${monthHeaders}<th>Overall</th></tr></thead>
+        <tbody>${coachRows||'<tr><td colspan="'+(6+mCols.length)+'" style="text-align:center;color:var(--tx3)">No coaches with patients</td></tr>'}
+        <tr style="font-weight:700;background:var(--bg3)"><td>Team Total</td><td>${teamTotal}</td><td>${teamActive}</td><td>${teamPending}</td><td>${teamInactive}</td>${teamMonthCells}<td><span style="color:${teamCompletionRate>=70?'var(--green)':teamCompletionRate>=40?'var(--amber)':'var(--red)'}">${teamCompletionRate}%</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+      ${inactiveCoaches.length ? '<div style="margin-top:8px;font-size:11px;color:var(--red)">Inactive coaches: '+inactiveCoaches.map(s=>s.name).join(', ')+'</div>' : ''}
+    </div>`;
+}
+
+function renderCoachTab(mod) {
+  const c = document.getElementById('tab-'+mod);
+  const coachList = dropdowns[mod+'_coaches']||[];
+  const statList = dropdowns.statuses||[];
+  const maxM = mod==='physio'?4:6;
+  const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
+
+  let active = patients.filter(p=>p[mod]?.status?.toLowerCase().includes('completed')).length;
+  let inactive = patients.filter(p=>p[mod]?.status?.toLowerCase().includes('inactive')).length;
+
+  // Head coach team performance panel — Added 2026-05-06
+  const teamPanel = (isHeadCoach(mod) || getRole()==='admin') ? renderTeamPerformance(mod) : '';
+
+  c.innerHTML = `
+    ${teamPanel}
+    <div class="filter-bar">
+      <input class="search" placeholder="Search patient..." oninput="renderCoachTable('${mod}')">
+      <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(statList,null,'All Statuses')}</select>
+      <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(coachList,null,'All Coaches')}</select>
+      <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
+      <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
+      <div class="kpi-strip">
+        <span class="kpi kpi-green">Active assessment: ${active}</span>
+        <span class="kpi kpi-red">Inactive assessment: ${inactive}</span>
+      </div>
+    </div>
+    <div class="main-area"><div class="table-area" id="${mod}-table"></div><div class="side-panel" id="sp-${mod}"></div></div>`;
+  renderCoachTable(mod);
+}
+
+function renderDiet(){renderCoachTab('diet');}
+function renderWellness(){renderCoachTab('wellness');}
+function renderPhysio(){renderCoachTab('physio');}
+
+function renderCoachTable(mod) {
+  const c = document.getElementById(mod+'-table'); if(!c) return;
+  const sels = document.querySelectorAll('#tab-'+mod+' .filter-sel');
+  const search = document.querySelector('#tab-'+mod+' .search')?.value||'';
+  const filtered = filterPatients(patients,{search,status:sels[0]?.value?sels[0].value:null,section:sels[0]?.value?mod:null,
+    coach:sels[1]?.value||null,condition:sels[2]?.value||null,planStatus:sels[3]?.value||null});
+  // Filter by coach for the right section
+  const list = sels[1]?.value ? filtered.filter(p=>p[mod]?.coach===sels[1].value) : filtered;
+  const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
+  const coachField = mod==='physio'?'coach':'coach';
+
+  let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Duration</th><th>Coach</th><th>Status</th>';
+  mCols.forEach(m=>h+='<th>M'+m+'</th>');
+  h += '<th>Current Status</th></tr></thead><tbody>';
+  list.forEach((p,i) => {
+    const sec = p[mod]||{};
+    h += `<tr class="${p.id===selectedPatientId?'sel':''}" onclick="openCoachPanel('${mod}','${p.id}')">
+      <td>${i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
+      <td>${condPill(p.seed.condition_type)}</td><td>${esc(p.seed.plan_duration)}</td>
+      <td><span class="ct">${esc(sec.coach)}</span></td>
+      <td>${statusPill(sec.status)}</td>`;
+    mCols.forEach(m=>h+='<td>'+monthIcon(sec.months,m)+'</td>');
+    h += `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(sec.current_status)}</td></tr>`;
+  });
+  h += '</tbody></table>';
+  c.innerHTML = h;
+  attachContextMenu(mod+'-table'); // Right-click menu — Added 2026-05-08
+}
+
+// Auto-calculate coaching status from assessment data — Added 2026-05-01
+// Returns suggested status string. Does NOT override manual "Inactive" selections.
+function calcCoachStatus(mod, patient) {
+  if(patient.rm?.welcome_call_done !== 'Yes') return 'Welcome Call Pending';
+  const sec = patient[mod]||{};
+  const months = sec.months||[];
+  const mCols = mod==='physio' ? [1,4] : [1,2,3,4,5,6];
+
+  // No monthly data and no coach → WC Completed
+  if(months.length === 0 && !sec.coach) return 'Welcome Call Completed';
+
+  let lastCompleted = 0;
+  for(const m of mCols) {
+    const me = months.find(x=>x.month===m);
+    if(!me) break;
+    const ad = (me.assessment_done||'').toLowerCase();
+    if(ad === 'yes') { lastCompleted = m; }
+    else { break; }
+  }
+
+  const completedIdx = mCols.indexOf(lastCompleted);
+
+  // All months completed
+  if(lastCompleted > 0 && completedIdx === mCols.length - 1) {
+    return 'Month ' + lastCompleted + ' Assessment Completed';
+  }
+
+  // Some months completed — check if next month has any activity — Changed 2026-05-06
+  if(lastCompleted > 0) {
+    const nextM = mCols[completedIdx + 1];
+    const nextMe = months.find(x=>x.month===nextM);
+    // If next month has attempts or any data, it's pending
+    if(nextMe && ((nextMe.attempts||[]).length > 0 || nextMe.assessment_done)) {
+      return 'Month ' + nextM + ' Assessment Pending';
+    }
+    // No activity in next month — stay on last completed
+    return 'Month ' + lastCompleted + ' Assessment Completed';
+  }
+
+  // No month completed — check if M1 has any activity — Changed 2026-05-06
+  if(months.length > 0) {
+    const m1 = months.find(x=>x.month===mCols[0]);
+    if(m1 && ((m1.attempts||[]).length > 0 || m1.assessment_done)) {
+      return 'Month ' + mCols[0] + ' Assessment Pending';
+    }
+  }
+
+  // Coach assigned but no activity yet — Changed 2026-05-06
+  if(sec.coach) return 'Welcome Call Completed';
+
+  return 'Welcome Call Completed';
+}
+
+// Apply auto-calculated status to dropdown if current status is not manually set to inactive — Added 2026-05-01
+function applyAutoStatus(mod, patient) {
+  const el = document.getElementById(mod+'-c-status'); // Prefixed — Changed 2026-05-04
+  if(!el) return;
+  const current = el.value||'';
+  // If manually set to inactive or "others" or "Plan Ended", don't override
+  if(current.toLowerCase().includes('inactive') || current === 'others' || current === 'Plan Ended') return;
+  const calc = calcCoachStatus(mod, patient);
+  el.value = calc;
+}
+
+// openCoachPanel — role-based: only matching coach role + admin can edit — Changed 2026-05-01
+function openCoachPanel(mod, id) {
+  selectedPatientId = id;
+  const p = pat(id); if(!p) return;
+  const sec = p[mod]||{};
+  const sp = document.getElementById('sp-'+mod);
+  sp.className = 'side-panel open';
+  const coachList = dropdowns[mod+'_coaches']||[];
+  const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
+  const months = sec.months||[];
+  const activeM = mCols.find(m=>monthStatus(months,m)!=='pill-green') || mCols[0];
+  const ed = canEdit(mod); // Only matching coach role + admin — Added 2026-05-01
+
+  let mtHtml = mCols.map(m=>{
+    const s = monthStatus(months,m);
+    const cls = s==='pill-green'?'done':s==='pill-red'?'inactive':m===activeM?'active':'';
+    return `<button class="mt-btn ${cls}" onclick="showMonth('${mod}','${id}',${m})">${mod==='physio'?'M'+m:'M'+m}</button>`;
+  }).join('');
+
+  sp.innerHTML = `
+    <div class="sp-hd"><h3>${esc(p.seed.patient_name)} — ${mod.charAt(0).toUpperCase()+mod.slice(1)}</h3><button class="v360-btn" onclick="open360('${id}','sp-${mod}')">360°</button><button class="sp-cls" onclick="closeSP('sp-${mod}')">✕</button></div>
+    <div class="sp-sec"><h4>Coach & Status</h4>
+      <div class="sp-row">
+        <div class="sp-f"><label>Coach</label>${editableSelect(mod+'-c-coach',coachList,sec.coach,mod)}</div>
+        <div class="sp-f"><label>Status</label>${editableSelect(mod+'-c-status',dropdowns.statuses,sec.status,mod)}</div>
+      </div>
+    </div>
+    <div class="sp-sec"><h4>Monthly cycle</h4>
+      <div class="mt">${mtHtml}</div>
+      <div id="${mod}-month-detail"></div>
+    </div>
+    <div class="sp-sec"><h4>Current status notes</h4>
+      <div class="sp-f">${editableTextarea(mod+'-c-curstat',sec.current_status,mod,'Progress notes...','80')}</div>
+    </div>
+    ${ed?'<div class="sp-actions"><button class="btn btn-primary" style="flex:1" onclick="saveCoach(\''+mod+'\',\''+id+'\')">Save changes</button><button class="btn btn-ghost" onclick="closeSP(\'sp-'+mod+'\')">Cancel</button></div>':''}
+    ${renderCommentSection(id)}`;
+
+  initPanelMentions(id);
+  showMonth(mod, id, activeM);
+  applyAutoStatus(mod, p); // Auto-fill status from assessment data — Added 2026-05-01
+  renderCoachTable(mod);
+}
+
+// showMonth — role-based: only matching coach role + admin can edit monthly fields — Changed 2026-05-01
+function showMonth(mod, id, m) {
+  const p = pat(id); if(!p) return;
+  const sec = p[mod]||{};
+  const me = (sec.months||[]).find(x=>x.month===m) || {month:m,attempts:[]};
+  window._activeMonth = m;
+  const ed = canEdit(mod);
+
+  let attHtml = (me.attempts||[]).map((a,i)=>`
+    <div class="att-e"><span class="att-n">${i+1}</span>
+      <div class="att-b"><span class="att-d">${esc(a.date)} ${esc(a.time)}</span> · <span class="att-disp">${esc(a.disposition||a.remarks)}</span></div>
+    </div>`).join('');
+
+  let planField = '';
+  if(mod==='diet') {
+    planField = `<div class="cyc"><h5>Nutrition plan assignment</h5>
+      <div class="sp-row"><div class="sp-f"><label>Plan Assigned</label>${editableSelect(mod+'-m-plan-yn',['Yes','No'],me.plan_assigned,mod)}</div>
+      <div class="sp-f"><label>Date</label>${editableInput(mod+'-m-plan-date',me.plan_date,mod,'date')}</div></div>
+      <div class="sp-f"><label>Comments</label>${editableTextarea(mod+'-m-plan-comments',me.plan_comments,mod,'Nutrition plan details...','50')}</div></div>`;
+  } else if(mod==='physio') {
+    planField = `<div class="cyc"><h5>Exercise plan</h5>
+      <div class="sp-row"><div class="sp-f"><label>Plan Assigned</label>${editableSelect(mod+'-m-plan-yn',['Yes','No'],me.exercise_plan_assigned,mod)}</div>
+      <div class="sp-f"><label>Date</label>${editableInput(mod+'-m-plan-date',me.exercise_plan_date,mod,'date')}</div></div>
+      <div class="sp-f"><label>Comments</label>${editableTextarea(mod+'-m-plan-comments',me.exercise_plan_comments,mod,'Exercise plan details...','50')}</div></div>`;
+    const fuAtts = (me.followup_attempts||[]).map((a,i)=>`
+      <div class="att-e"><span class="att-n">${i+1}</span>
+        <div class="att-b"><span class="att-d">${esc(a.date)} ${esc(a.time)}</span> · ${esc(a.comments)}</div>
+      </div>`).join('');
+    planField += `<div class="cyc"><h5>Follow-up calls</h5>${fuAtts||'<div style="font-size:12px;color:var(--tx3)">No follow-ups yet</div>'}
+      ${ed?'<button class="new-att-btn" onclick="showNewAttemptForm(\''+mod+'\',\''+m+'_fu\')">+ Log follow-up call</button>':''}
+      <div id="${mod}-coach-new-fu"></div>
+      <div class="sp-row" style="margin-top:8px">
+        <div class="sp-f"><label>Follow-up Done</label>${editableSelect(mod+'-m-fu-yn',['Yes','No'],me.followup_done,mod)}</div>
+        <div class="sp-f"><label>Follow-up Date</label>${editableInput(mod+'-m-fu-date',me.followup_date,mod,'date')}</div>
+      </div></div>`;
+  } else if(mod==='wellness') {
+    planField = `<div class="cyc"><h5>CBT Tools</h5>
+      <div class="sp-f">${editableTextarea(mod+'-m-cbt',me.cbt_tools,mod,'CBT tools...','50')}</div></div>`;
+    planField += `<div class="cyc"><h5>Comments</h5>
+      <div class="sp-f">${editableTextarea(mod+'-m-well-comments',me.comments,mod,'Comments...','50')}</div></div>`;
+  }
+
+  document.getElementById(mod+'-month-detail').innerHTML = `
+    <div class="cyc"><h5>Assessment calls — Month ${m}</h5>
+      <div class="att-log">${attHtml||'<div style="font-size:12px;color:var(--tx3)">No attempts yet</div>'}</div>
+      ${ed?'<button class="new-att-btn" onclick="showNewAttemptForm(\''+mod+'\',\''+m+'\')">+ Log attempt</button>':''}
+      <div id="${mod}-coach-new-att"></div>
+    </div>
+    <div class="cyc"><h5>Assessment completion</h5>
+      <div class="sp-row"><div class="sp-f"><label>Done</label>${editableSelect(mod+'-m-assess-yn',['Yes','No'],me.assessment_done,mod)}</div>
+      <div class="sp-f"><label>Date</label>${editableInput(mod+'-m-assess-date',me.assessment_date,mod,'date')}</div></div>
+    </div>
+    ${planField}`;
+  applyAutoStatus(mod, pat(id));
+}
+
+async function saveCoach(mod, id) {
+  if(!canEdit(mod)){toast('No edit access to '+mod,false);return;} // Guard — Added 2026-05-01
+  const p = pat(id); if(!p) return;
+  const sec = p[mod]||{};
+  const m = window._activeMonth;
+  try {
+    // Save coach — Changed 2026-05-04: prefixed IDs with mod
+    const coachEl = document.getElementById(mod+'-c-coach');
+    if(coachEl) {
+      const coach = coachEl.value.trim() || null;
+      if(coach !== (sec.coach||null)) {
+        console.log(`Saving ${mod} coach: "${sec.coach}" -> "${coach}"`);
+        await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'coach',value:coach,user:getUser(),role:getRole()});
+        sec.coach = coach;
+      }
+    }
+
+    // Save monthly fields — Changed 2026-05-04: prefixed IDs with mod
+    if(m) {
+      let months = sec.months||[];
+      let me = months.find(x=>x.month===m);
+      if(!me) { me = {month:m, attempts:[]}; months.push(me); sec.months = months; }
+
+      const assessEl = document.getElementById(mod+'-m-assess-yn');
+      if(assessEl) me.assessment_done = assessEl.value.trim() || null;
+      const assessDateEl = document.getElementById(mod+'-m-assess-date');
+      if(assessDateEl) me.assessment_date = assessDateEl.value.trim() || null;
+
+      if(mod==='diet') {
+        const el1 = document.getElementById(mod+'-m-plan-yn');
+        if(el1) me.plan_assigned = el1.value.trim() || null;
+        const el2 = document.getElementById(mod+'-m-plan-date');
+        if(el2) me.plan_date = el2.value.trim() || null;
+        const el3 = document.getElementById(mod+'-m-plan-comments');
+        if(el3) me.plan_comments = el3.value.trim() || null;
+      } else if(mod==='physio') {
+        const el1 = document.getElementById(mod+'-m-plan-yn');
+        if(el1) me.exercise_plan_assigned = el1.value.trim() || null;
+        const el2 = document.getElementById(mod+'-m-plan-date');
+        if(el2) me.exercise_plan_date = el2.value.trim() || null;
+        const el3 = document.getElementById(mod+'-m-plan-comments');
+        if(el3) me.exercise_plan_comments = el3.value.trim() || null;
+        const el4 = document.getElementById(mod+'-m-fu-yn');
+        if(el4) me.followup_done = el4.value.trim() || null;
+        const el5 = document.getElementById(mod+'-m-fu-date');
+        if(el5) me.followup_date = el5.value.trim() || null;
+      } else if(mod==='wellness') {
+        const el1 = document.getElementById(mod+'-m-cbt');
+        if(el1) me.cbt_tools = el1.value.trim() || null;
+        const el2 = document.getElementById(mod+'-m-well-comments');
+        if(el2) me.comments = el2.value.trim() || null;
+      }
+
+      console.log(`Saving ${mod} months:`, JSON.stringify(months.map(x=>({m:x.month, done:x.assessment_done, atts:x.attempts?.length||0}))));
+      await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'months',value:months,user:getUser(),role:getRole()});
+    }
+
+    // Auto-calc status — Changed 2026-05-04: prefixed ID
+    const statusEl = document.getElementById(mod+'-c-status');
+    const manualStatus = statusEl ? (statusEl.value.trim() || null) : (sec.status || null);
+    let finalStatus = manualStatus;
+    if(!manualStatus || (!manualStatus.toLowerCase().includes('inactive') && manualStatus !== 'others' && manualStatus !== 'Plan Ended')) {
+      finalStatus = calcCoachStatus(mod, p);
+    }
+    if(finalStatus !== (sec.status||null)) {
+      console.log(`Status ${mod}: "${sec.status}" -> "${finalStatus}"`);
+      await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'status',value:finalStatus,user:getUser(),role:getRole()});
+      sec.status = finalStatus;
+    }
+
+    // Save current status notes — Changed 2026-05-04: prefixed ID
+    const curStatEl = document.getElementById(mod+'-c-curstat');
+    if(curStatEl) {
+      const curStat = curStatEl.value.trim() || null;
+      if(curStat !== (sec.current_status||null)) {
+        await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'current_status',value:curStat,user:getUser(),role:getRole()});
+        sec.current_status = curStat;
+      }
+    }
+
+    toast('Saved ✓'); updateCounts(); renderCoachTable(mod); // Preserve filters — Changed 2026-05-08
+    loadNotifications(); // Refresh bell badge — Added 2026-05-05
+    openCoachPanel(mod, id); // Re-open panel to show updated values — Added 2026-05-04
+  } catch(e){console.error('saveCoach failed:',e);toast('Failed: '+e.message,false);}
+}
+
+// ═══════════════════════════════════════════════
+// RM WEEKLY TAB
+// ═══════════════════════════════════════════════
+function renderWeekly() {
+  const c = document.getElementById('tab-weekly');
+  c.innerHTML = `
+    <div class="filter-bar">
+      <input class="search" placeholder="Search patient..." oninput="renderWeeklyTable()">
+      <select class="filter-sel" onchange="renderWeeklyTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
+      <select class="filter-sel" onchange="renderWeeklyTable()">${optHtml(dropdowns.health_partners,null,'All HP')}</select>
+      <select class="filter-sel" onchange="renderWeeklyTable()">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
+    </div>
+    <div class="main-area"><div class="table-area" id="wk-table"></div><div class="side-panel" id="sp-weekly"></div></div>`;
+  renderWeeklyTable();
+}
+
+function renderWeeklyTable() {
+  const c = document.getElementById('wk-table'); if(!c) return;
+  const sels = document.querySelectorAll('#tab-weekly .filter-sel');
+  const search = document.querySelector('#tab-weekly .search')?.value||'';
+  const filtered = filterPatients(patients,{search,condition:sels[0]?.value,hp:sels[1]?.value,planStatus:sels[2]?.value||null});
+
+  let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>HP</th><th>Entries</th><th>Last Date</th><th>Latest Remarks</th></tr></thead><tbody>';
+  filtered.forEach((p,i) => {
+    const wk = p.weekly||{entries:[]};
+    const entries = wk.entries||[];
+    const last = entries[entries.length-1];
+    h += `<tr class="${p.id===selectedPatientId?'sel':''}" onclick="openWeeklyPanel('${p.id}')">
+      <td>${i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
+      <td>${condPill(p.seed.condition_type)}</td><td><span class="ct">${esc(p.rm?.health_partner)}</span></td>
+      <td><span class="pill pill-purple">${entries.length} wks</span></td>
+      <td class="dc">${esc(last?.date)}</td>
+      <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">${esc(last?.remarks)}</td></tr>`;
+  });
+  h += '</tbody></table>';
+  c.innerHTML = h;
+  attachContextMenu('wk-table'); // Right-click menu — Added 2026-05-08
+}
+
+// openWeeklyPanel — role-based: only RM (weekly) + admin can edit — Changed 2026-05-01
+function openWeeklyPanel(id) {
+  selectedPatientId = id;
+  const p = pat(id); if(!p) return;
+  const sp = document.getElementById('sp-weekly');
+  sp.className = 'side-panel open';
+  const entries = p.weekly?.entries||[];
+  const nextWeek = entries.length+1;
+  const ed = canEdit('weekly'); // RM + Admin only — Added 2026-05-01
+  let logHtml = entries.map((e,i)=>`
+    <div class="att-e"><span class="att-n">${e.week||i+1}</span>
+      <div class="att-b"><span class="att-d">Wk ${e.week||i+1} · ${esc(e.date)}</span><br>${esc(e.remarks)}</div>
+    </div>`).join('');
+
+  sp.innerHTML = `
+    <div class="sp-hd"><h3>${esc(p.seed.patient_name)}</h3><button class="v360-btn" onclick="open360('${id}','sp-weekly')">360°</button><button class="sp-cls" onclick="closeSP('sp-weekly')">✕</button></div>
+    <div class="sp-sec"><h4>Weekly follow-up log</h4>
+      <div class="att-log">${logHtml||'<div style="font-size:12px;color:var(--tx3)">No entries yet</div>'}</div>
+    </div>
+    ${ed?`<div class="sp-sec"><h4>Log new entry — Week ${nextWeek}</h4>
+      <div class="sp-row">
+        <div class="sp-f"><label>Week</label><input class="ro" value="Week ${nextWeek}" readonly></div>
+        <div class="sp-f"><label>Date</label><input id="wk-date" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+      </div>
+      <div class="sp-f"><label>Remarks</label><textarea id="wk-rem" placeholder="What happened..."></textarea></div>
+    </div>
+    <div class="sp-actions"><button class="btn btn-primary" style="flex:1" onclick="saveWeekly('${id}',${nextWeek})">Save entry</button><button class="btn btn-ghost" onclick="closeSP('sp-weekly')">Cancel</button></div>`:''}
+    ${renderCommentSection(id)}`;
+  initPanelMentions(id);
+  renderWeeklyTable();
+}
+
+async function saveWeekly(id, week) {
+  if(!canEdit('weekly')){toast('No edit access to Weekly',false);return;} // Guard — Added 2026-05-01
+  const date = document.getElementById('wk-date').value;
+  const rem = document.getElementById('wk-rem').value;
+  if(!date||!rem){toast('Date and remarks required',false);return;}
+  try {
+    await apiPost('/api/patients/weekly',{patient_id:id,week,date,remarks:rem,user:getUser(),role:getRole()});
+    const p = pat(id);
+    p.weekly = p.weekly||{entries:[]};
+    p.weekly.entries.push({week,date,remarks:rem});
+    toast('Entry saved ✓');
+    loadNotifications(); // Refresh bell badge — Added 2026-05-05
+    openWeeklyPanel(id);
+  } catch(e){toast('Failed: '+e.message,false);}
+}
+
+// ═══════════════════════════════════════════════
+// COACHES TAB
+// ═══════════════════════════════════════════════
+// renderCoaches — only admin can add coaches — Changed 2026-05-01
+function renderCoaches() {
+  const c = document.getElementById('tab-coaches');
+
+  c.innerHTML = `
+    <div class="filter-bar">
+      <input class="search" placeholder="Search coach..." oninput="renderCoachesTable()">
+      <select class="filter-sel" onchange="renderCoachesTable()">${optHtml(['Nutritionist','Psychologist','Physiotherapist','HP / RM'],null,'All Types')}</select>
+      <select class="filter-sel" onchange="renderCoachesTable()">${optHtml(['Active','Inactive'],null,'All Status')}</select>
+      ${getRole()==='admin'?'<button class="btn btn-primary" onclick="showAddCoach()">+ Add new coach</button><button class="btn btn-ghost" onclick="showManageUsers()" style="margin-left:4px">Manage Users</button>':''}
+    </div>
+    <div class="main-area"><div class="table-area" id="coaches-table"></div><div class="side-panel" id="sp-coaches"></div></div>`;
+
+  loadStaffAndRender(); // Load staff from API — Changed 2026-05-05
+}
+
+// Staff list stored globally for coaches tab — Added 2026-05-05
+let staffList = [];
+
+async function loadStaffAndRender() {
+  try {
+    const r = await fetch(API+'/api/staff');
+    staffList = await r.json();
+  } catch(e) { staffList = []; }
+  renderCoachesTable();
+}
+
+function renderCoachesTable() {
+  const c = document.getElementById('coaches-table');
+  if(!c) return;
+  const search = document.querySelector('#tab-coaches .search')?.value?.toLowerCase()||'';
+  const sels = document.querySelectorAll('#tab-coaches .filter-sel');
+  const typeFilter = sels[0]?.value||'';
+  const statusFilter = sels[1]?.value||'';
+
+  const typeMap = {diet_coach:'Nutritionist',wellness_coach:'Psychologist',
+    physio_coach:'Physiotherapist',health_partner:'HP / RM',cs_agent:'CS Agent',isa_owner:'ISA Owner'};
+  const clsMap = {Nutritionist:'pill-blue',Psychologist:'pill-purple',
+    Physiotherapist:'pill-amber','HP / RM':'pill-green','CS Agent':'pill-gray','ISA Owner':'pill-gray'};
+  const modMap = {diet_coach:'diet',wellness_coach:'wellness',physio_coach:'physio',health_partner:'rm'};
+  const idFieldMap = {diet_coach:'coach_id',wellness_coach:'coach_id',physio_coach:'coach_id',health_partner:'health_partner_id'}; // Added 2026-05-05
+
+  let rows = '';
+  staffList.forEach(s => {
+    const label = typeMap[s.type]||s.type;
+    if(typeFilter && label !== typeFilter) return;
+    if(statusFilter === 'Active' && !s.active) return;
+    if(statusFilter === 'Inactive' && s.active) return;
+    if(search && !s.name.toLowerCase().includes(search)) return;
+
+    let count = 0;
+    const mod = modMap[s.type];
+    const idField = idFieldMap[s.type]; // Match by ID — Changed 2026-05-05
+    if(mod && idField) {
+      if(mod === 'rm') count = patients.filter(p=>p.rm?.[idField]===s.id).length;
+      else count = patients.filter(p=>p[mod]?.[idField]===s.id).length;
+    }
+
+    const statusPill = s.active ? '<span class="pill pill-green">Active</span>' : '<span class="pill pill-gray">Inactive</span>';
+    const toggleBtn = getRole()==='admin' ? '<button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="toggleStaff('+s.id+')">'+( s.active ? 'Deactivate' : 'Activate')+'</button>' : '';
+
+    rows += '<tr'+(s.active?'':' style="opacity:0.6"')+'><td class="pn">'+esc(s.name)+'</td><td><span class="pill '+(clsMap[label]||'pill-gray')+'">'+label+'</span></td><td>'+count+'</td><td>'+statusPill+toggleBtn+'</td></tr>';
+  });
+
+  c.innerHTML = '<table class="dt"><thead><tr><th>Coach Name</th><th>Type</th><th>Active Patients</th><th>Status</th></tr></thead><tbody>'+(rows||'<tr><td colspan="4" style="text-align:center;color:var(--tx3)">No coaches found</td></tr>')+'</tbody></table>';
+}
+
+// Toggle staff active/inactive — Added 2026-05-05
+async function toggleStaff(staffId) {
+  if(getRole()!=='admin'){toast('Admin access required',false);return;}
+  try {
+    const r = await fetch(API+'/api/staff/'+staffId+'/toggle', {method:'PUT'});
+    if(!r.ok) throw new Error('Failed');
+    const data = await r.json();
+    // Update local staff list
+    const s = staffList.find(x=>x.id===staffId);
+    if(s) s.active = data.active;
+    // Refresh dropdowns since active list changed — Added 2026-05-05
+    const dRes = await fetch(API+'/api/dropdowns');
+    dropdowns = await dRes.json();
+    toast(data.name + (data.active ? ' activated ✓' : ' deactivated ✓'));
+    renderCoachesTable();
+  } catch(e){toast('Failed: '+e.message,false);}
+}
+
+function showAddCoach() {
+  const sp = document.getElementById('sp-coaches');
+  sp.className = 'side-panel open';
+  sp.innerHTML = `
+    <div class="sp-hd"><h3>Add new coach</h3><button class="sp-cls" onclick="closeSP('sp-coaches')">✕</button></div>
+    <div class="sp-sec">
+      <div class="sp-f"><label>Coach Name <span class="req">*</span></label><input id="ac-name" placeholder="Full name"></div>
+      <div class="sp-f"><label>Type <span class="req">*</span></label><select id="ac-type">
+        <option value="">— Select —</option><option value="diet_coaches">Nutritionist</option><option value="wellness_coaches">Psychologist</option>
+        <option value="physio_coaches">Physiotherapist</option><option value="health_partners">HP / RM</option></select></div>
+    </div>
+    <div class="sp-actions"><button class="btn btn-primary" style="flex:1" onclick="saveAddCoach()">Add coach</button><button class="btn btn-ghost" onclick="closeSP('sp-coaches')">Cancel</button></div>`;
+}
+
+async function saveAddCoach() {
+  if(getRole()!=='admin'){toast('Only Admin can add coaches',false);return;} // Guard — Added 2026-05-01
+  const name = document.getElementById('ac-name').value.trim();
+  const type = document.getElementById('ac-type').value;
+  if(!name||!type){toast('Name and type required',false);return;}
+  try {
+    const res = await apiPut('/api/dropdowns',{list_name:type,action:'add',value:name,user:getUser(),role:getRole()});
+    dropdowns[type] = res.list;
+    toast('Coach added ✓'); closeSP('sp-coaches'); renderCoaches();
+  } catch(e){toast('Failed: '+e.message,false);}
+}
+
+// ═══════════════════════════════════════════════
+// MANAGE USERS (admin only) — Added 2026-05-04
+// ═══════════════════════════════════════════════
+async function showManageUsers() {
+  if(getRole()!=='admin'){toast('Admin access required',false);return;}
+  const sp = document.getElementById('sp-coaches');
+  sp.className = 'side-panel open';
+
+  // Load users and staff list
+  let usersHtml = '<div style="font-size:12px;color:var(--tx3)">Loading...</div>';
+  try {
+    const [uRes, sRes] = await Promise.all([fetch(API+'/api/users'), fetch(API+'/api/staff')]);
+    const users = await uRes.json();
+    const staff = await sRes.json();
+    const roleLabels = {admin:'Admin',sales:'Inside Sales',rm:'RM',diet:'Nutritionist',wellness:'Psychologist',physio:'Physiotherapist',cs:'CS Agent',visit:'Visit Team'};
+
+    // Build staff dropdown options for link override — Added 2026-05-05
+    const staffOpts = staff.map(s => '<option value="'+s.id+'">'+esc(s.name)+' ('+s.type.replace('_',' ')+')</option>').join('');
+
+    usersHtml = users.map(u => {
+      const linked = u.staff_id ? '<span class="pill pill-green" style="font-size:10px">Linked: '+esc(u.staff_name||'#'+u.staff_id)+'</span>' : '<span class="pill pill-gray" style="font-size:10px">Not linked</span>';
+      const linkBtn = u.id !== currentUser.id ? `
+        <div style="display:flex;gap:4px;align-items:center;margin-top:4px">
+          <select id="link-staff-${u.id}" style="font-size:11px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;flex:1">
+            <option value="">— Link to staff —</option>${staffOpts}
+          </select>
+          <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="linkUserToStaff(${u.id})">Link</button>
+        </div>` : '';
+      return `
+      <div class="att-e" style="flex-direction:column;align-items:stretch">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <span class="att-n" style="background:var(--purple)">${u.name.charAt(0)}</span>
+            <div class="att-b">
+              <b>${esc(u.name)}</b> <span style="color:var(--tx3)">@${esc(u.username)}</span><br>
+              <span class="pill pill-blue" style="font-size:10px">${roleLabels[u.role]||u.role}</span> ${linked}
+            </div>
+          </div>
+          ${u.id !== currentUser.id ? '<button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red)" onclick="deleteUser('+u.id+',\''+esc(u.name)+'\')">Delete</button>' : '<span style="font-size:11px;color:var(--tx3)">You</span>'}
+        </div>
+        ${linkBtn}
+      </div>`;
+    }).join('');
+  } catch(e) { usersHtml = '<div style="color:var(--red)">Failed to load users</div>'; }
+
+  sp.innerHTML = `
+    <div class="sp-hd"><h3>Manage Users</h3><button class="sp-cls" onclick="closeSP('sp-coaches')">✕</button></div>
+    <div class="sp-sec"><h4>Existing users</h4>
+      <div class="att-log">${usersHtml}</div>
+    </div>
+    <div class="sp-sec"><h4>Add new user</h4>
+      <div class="sp-f"><label>Full Name <span class="req">*</span></label><input id="nu-name" placeholder="e.g. Tanupriya"></div>
+      <div class="sp-f"><label>Username <span class="req">*</span></label><input id="nu-user" placeholder="e.g. tanupriya"></div>
+      <div class="sp-f"><label>Password <span class="req">*</span></label><input id="nu-pass" type="password" placeholder="Set password"></div>
+      <div class="sp-f"><label>Role <span class="req">*</span></label>
+        <select id="nu-role">
+          <option value="">— Select role —</option>
+          <option value="admin">Admin (All Access)</option>
+          <option value="sales">Inside Sales</option>
+          <option value="rm">Health Partner (RM)</option>
+          <option value="diet">Nutritionist</option>
+          <option value="wellness">Psychologist</option>
+          <option value="physio">Physiotherapist</option>
+          <option value="cs">CS Agent</option>
+          <option value="visit">Visit Team</option>
+        </select>
+      </div>
+      <div class="info-box">Staff record auto-linked by name match on creation. Use the Link dropdown above to manually override.</div>
+    </div>
+    <div class="sp-actions"><button class="btn btn-primary" style="flex:1" onclick="saveNewUser()">Create user</button><button class="btn btn-ghost" onclick="closeSP('sp-coaches')">Cancel</button></div>`;
+}
+
+async function saveNewUser() {
+  if(getRole()!=='admin'){toast('Admin access required',false);return;}
+  const name = document.getElementById('nu-name').value.trim();
+  const username = document.getElementById('nu-user').value.trim();
+  const password = document.getElementById('nu-pass').value;
+  const role = document.getElementById('nu-role').value;
+  if(!name||!username||!password||!role){toast('Fill all fields',false);return;}
+  try {
+    const r = await apiPost('/api/users',{name,username,password,role});
+    const matched = r.staff_matched ? ' (auto-linked to staff)' : ' (no staff match found)';
+    toast('User created' + matched + ' ✓');
+    showManageUsers();
+  } catch(e){toast('Failed: '+e.message,false);}
+}
+
+// Admin override: link user to staff record — Added 2026-05-05
+async function linkUserToStaff(userId) {
+  const sel = document.getElementById('link-staff-'+userId);
+  if(!sel) return;
+  const staffId = sel.value;
+  if(!staffId){toast('Select a staff record',false);return;}
+  try {
+    const r = await fetch(API+'/api/users/'+userId+'/link-staff?staff_id='+staffId, {method:'PUT'});
+    if(!r.ok) throw new Error('Failed');
+    const data = await r.json();
+    toast('Linked: '+data.user+' → '+data.staff+' ✓');
+    showManageUsers();
+  } catch(e){toast('Failed: '+e.message,false);}
+}
+
+// Delete user (admin only) — Added 2026-05-05
+async function deleteUser(userId, userName) {
+  if(getRole()!=='admin'){toast('Admin access required',false);return;}
+  if(!confirm('Delete user "' + userName + '"? They will no longer be able to log in.')){return;}
+  try {
+    const r = await fetch(API+'/api/users/'+userId, {method:'DELETE'});
+    if(!r.ok) throw new Error('Failed');
+    toast('User deleted ✓');
+    showManageUsers();
+  } catch(e){toast('Failed: '+e.message,false);}
+}
+
+// Delete patient (admin only) — Added 2026-05-05
+async function deletePatient(patientId, patientName) {
+  if(getRole()!=='admin'){toast('Admin access required',false);return;}
+  if(!confirm('Delete patient "' + patientName + '"? This will permanently remove all their data including RM, coaching, and weekly entries.')){return;}
+  try {
+    const r = await fetch(API+'/api/patients/'+patientId, {method:'DELETE'});
+    if(!r.ok) throw new Error('Failed');
+    patients = patients.filter(p=>p.id !== String(patientId));
+    toast('Patient deleted ✓');
+    updateCounts(); // Preserve filters — Changed 2026-05-08
+    const tableRenderers = {sales:renderSalesTable, rm:renderRMTable, weekly:renderWeeklyTable,
+      diet:()=>renderCoachTable('diet'), wellness:()=>renderCoachTable('wellness'), physio:()=>renderCoachTable('physio')};
+    if(tableRenderers[currentTab]) tableRenderers[currentTab]();
+    else renderTab(currentTab);
+  } catch(e){toast('Failed: '+e.message,false);}
+}
+// ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// TASKS TAB — Added 2026-05-06
+// ═══════════════════════════════════════════════
+let tasksFilter = 'open';
+
+async function renderTasks() {
+  const c = document.getElementById('tab-tasks');
+  if(!currentUser?.id) { c.innerHTML = '<div class="loading">Login required</div>'; return; }
+
+  const isAdmin = getRole() === 'admin';
+  const url = isAdmin ? API+'/api/tasks-all' : API+'/api/tasks/'+currentUser.id+'?status='+tasksFilter;
+
+  let tasks = [];
+  try {
+    const r = await fetch(url);
+    tasks = await r.json();
+  } catch(e) { c.innerHTML = '<div class="loading">Failed to load tasks</div>'; return; }
+
+  // Update tab count — Added 2026-05-06
+  const countEl = document.getElementById('cnt-tasks');
+  if(countEl) {
+    if(isAdmin) { countEl.textContent = tasks.filter(t=>t.status==='open').length || ''; }
+    else {
+      try { const cr = await fetch(API+'/api/tasks/'+currentUser.id+'/count'); const d = await cr.json(); countEl.textContent = d.count || ''; }
+      catch(e) { countEl.textContent = ''; }
+    }
+  }
+
+  const typeLabels = {coach_assigned:'Task Assigned',patient_inactive:'Patient Inactive'};
+  const typeColors = {coach_assigned:'pill-blue',patient_inactive:'pill-red'};
+  const sectionLabels = {diet:'Nutritionist',wellness:'Psychologist',physio:'Physiotherapist',rm:'RM'};
+
+  let taskRows = '';
+  if(!tasks.length) {
+    taskRows = '<div class="empty-state"><h3>No tasks</h3><p>'+(tasksFilter==='done'?'No completed tasks yet':'All caught up!')+' </p></div>';
+  } else {
+    taskRows = tasks.map(t => {
+      const timeAgo = getTimeAgo(t.created_at);
+      const hasPatient = t.patient_id && patients.some(p=>p.id===String(t.patient_id));
+      return `<div style="display:flex;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);background:${t.status==='done'?'var(--bg)':'var(--bg2)'}${hasPatient?';cursor:pointer':''}" ${hasPatient?'onclick="openTaskPatient('+t.patient_id+',\''+t.section+'\')"':''}>
+        <div style="flex:1">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+            <span class="pill ${typeColors[t.task_type]||'pill-gray'}">${typeLabels[t.task_type]||t.task_type}</span>
+            <span class="pill pill-gray">${sectionLabels[t.section]||t.section}</span>
+            ${isAdmin?'<span style="font-size:11px;color:var(--tx3)">→ '+esc(t.assigned_to||t.assigned_to_name||'')+'</span>':''}
+          </div>
+          <div style="font-size:13px;font-weight:500;color:var(--tx)">${esc(t.message)}</div>
+          <div style="font-size:11px;color:var(--tx3);margin-top:4px">
+            Patient: <b style="${hasPatient?'color:var(--acc);text-decoration:underline':''}">${esc(t.patient_name)}</b> · Created by ${esc(t.created_by)} · ${timeAgo}
+            ${t.completed_at?' · Done '+getTimeAgo(t.completed_at):''}
+          </div>
+        </div>
+        ${t.status==='open'?'<button class="btn btn-primary btn-sm" onclick="event.stopPropagation();markTaskDone('+t.id+')">Done</button>':'<span class="pill pill-green">Done</span>'}
+      </div>`;
+    }).join('');
+  }
+
+  const filterBtns = isAdmin ? '<span class="kpi kpi-blue">Showing all open tasks (admin view)</span>' :
+    `<button class="btn ${tasksFilter==='open'?'btn-primary':'btn-ghost'}" onclick="tasksFilter='open';renderTasks()">Open</button>
+     <button class="btn ${tasksFilter==='done'?'btn-primary':'btn-ghost'}" onclick="tasksFilter='done';renderTasks()">Done</button>
+     <button class="btn ${tasksFilter==='all'?'btn-primary':'btn-ghost'}" onclick="tasksFilter='all';renderTasks()">All</button>`;
+
+  c.innerHTML = `
+    <div class="filter-bar">
+      ${filterBtns}
+      <div class="kpi-strip" style="margin-left:auto">
+        <span class="kpi kpi-blue">Total: ${tasks.length}</span>
+      </div>
+    </div>
+    <div style="overflow-y:auto;height:calc(100vh - 56px - 42px - 50px - 50px)">${taskRows}</div>`;
+}
+
+async function markTaskDone(taskId) {
+  try {
+    await fetch(API+'/api/tasks/'+taskId+'/done', {method:'PUT'});
+    toast('Task marked done ✓');
+    renderTasks();
+  } catch(e) { toast('Failed',false); }
+}
+
+// Navigate from task to patient's tab and panel — Added 2026-05-08
+function openTaskPatient(patientId, section) {
+  const tabMap = {diet:'diet', wellness:'wellness', physio:'physio', rm:'rm'};
+  const tab = tabMap[section] || 'rm';
+  switchTab(tab);
+  setTimeout(() => {
+    const pid = String(patientId);
+    if(tab === 'rm') openRMPanel(pid);
+    else if(tab === 'weekly') openWeeklyPanel(pid);
+    else openCoachPanel(tab, pid);
+  }, 200);
+}
+
+function renderDashboard() {
+  const c = document.getElementById('tab-dashboard');
+  const total = patients.length;
+  const wcd = patients.filter(p=>p.rm?.welcome_call_done==='Yes').length;
+
+  // Module status counting helper — Changed 2026-05-05
+  function modStats(mod) {
+    let active=0, inactive=0, pending=0;
+    patients.forEach(p => {
+      const s = (p[mod]?.status||'').toLowerCase();
+      if(s.includes('inactive') || s==='plan ended') inactive++;
+      else if(s.includes('completed')) active++;
+      else if(s.includes('pending') || s==='welcome call completed') pending++;
+    });
+    return {active, inactive, pending};
+  }
+  const diet = modStats('diet');
+  const well = modStats('wellness');
+  const phys = modStats('physio');
+
+  // Overall active = WC done and not inactive in ALL modules
+  const overallActive = patients.filter(p => {
+    if(p.rm?.welcome_call_done !== 'Yes') return false;
+    const ds = (p.diet?.status||'').toLowerCase();
+    const ws = (p.wellness?.status||'').toLowerCase();
+    const ps = (p.physio?.status||'').toLowerCase();
+    return !ds.includes('inactive') && !ws.includes('inactive') && !ps.includes('inactive');
+  }).length;
+  const overallInactive = patients.filter(p => {
+    const ds = (p.diet?.status||'').toLowerCase();
+    const ws = (p.wellness?.status||'').toLowerCase();
+    const ps = (p.physio?.status||'').toLowerCase();
+    return ds.includes('inactive') || ws.includes('inactive') || ps.includes('inactive');
+  }).length;
+
+  // Condition distribution — unchanged
+  const conds = {}; patients.forEach(p=>{const k=p.seed.condition_type||'Other';conds[k]=(conds[k]||0)+1;});
+  const maxCond = Math.max(...Object.values(conds),1);
+  let condBars = Object.entries(conds).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{
+    const pct = Math.round(v/maxCond*100);
+    const color = k==='Diabetes'?'var(--purple)':k==='Cholesterol'?'var(--acc)':'var(--green)';
+    return '<div class="bar-row"><span class="bar-label">'+esc(k)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div><span class="bar-val">'+v+'</span></div>';
+  }).join('');
+
+  // Module status mini bars — Added 2026-05-05
+  function statusBars(label, stats) {
+    const t = stats.active + stats.inactive + stats.pending || 1;
+    return '<div style="margin-bottom:14px"><div style="font-size:13px;font-weight:500;margin-bottom:6px">'+label+'</div>'
+      + '<div style="display:flex;gap:4px;height:22px;border-radius:4px;overflow:hidden">'
+      + '<div style="width:'+(stats.active/t*100)+'%;background:var(--green);min-width:'+(stats.active?'2px':'0')+'"></div>'
+      + '<div style="width:'+(stats.pending/t*100)+'%;background:var(--amber);min-width:'+(stats.pending?'2px':'0')+'"></div>'
+      + '<div style="width:'+(stats.inactive/t*100)+'%;background:var(--red);min-width:'+(stats.inactive?'2px':'0')+'"></div>'
+      + '</div><div style="display:flex;gap:12px;font-size:11px;color:var(--tx3);margin-top:4px">'
+      + '<span style="color:var(--green-tx)">Active assessment: '+stats.active+'</span>'
+      + '<span style="color:var(--amber-tx)">Pending assessment: '+stats.pending+'</span>'
+      + '<span style="color:var(--red-tx)">Inactive assessment: '+stats.inactive+'</span></div></div>';
+  }
+
+  // Coach workload — matches by coach_id instead of name — Changed 2026-05-05
+  function coachBars(mod, field) {
+    const idField = field + '_id'; // coach_id, health_partner_id — Added 2026-05-05
+    const coaches = {}; // keyed by staff ID
+    patients.forEach(p => {
+      const cid = p[mod]?.[idField];
+      const cname = p[mod]?.[field];
+      if(!cid && !cname) return;
+      const key = cid || cname; // prefer ID, fallback to name
+      if(!coaches[key]) coaches[key] = {name: cname, id: cid, active:0, pending:0, inactive:0, total:0};
+      const s = (p[mod]?.status||'').toLowerCase();
+      if(s.includes('inactive') || s==='plan ended') coaches[key].inactive++;
+      else if(s.includes('completed')) coaches[key].active++;
+      else coaches[key].pending++;
+      coaches[key].total++;
+    });
+    const sorted = Object.values(coaches).sort((a,b) => b.total - a.total);
+    if(!sorted.length) return '<div style="font-size:12px;color:var(--tx3)">No data</div>';
+    const mx = Math.max(...sorted.map(v => v.total), 1);
+    return sorted.map(s => {
+      const w = Math.round(s.total/mx*100);
+      const aP = s.total ? Math.round(s.active/s.total*100) : 0;
+      const pP = s.total ? Math.round(s.pending/s.total*100) : 0;
+      const iP = s.total ? Math.round(s.inactive/s.total*100) : 0;
+      // Match by ID if available, fallback to name — Changed 2026-05-05
+      const isStaffInactive = staffList.length > 0 && (
+        s.id ? !staffList.some(x=>x.id===s.id && x.active) : !staffList.some(x=>x.name===s.name && x.active)
+      );
+      const nameHtml = isStaffInactive ? '<span style="text-decoration:line-through;opacity:0.5">' + esc(s.name) + '</span> <span style="font-size:10px;color:var(--red)">(inactive)</span>' : esc(s.name);
+      return '<div class="bar-row"'+(isStaffInactive?' style="opacity:0.6"':'')+'><span class="bar-label">' + nameHtml + '</span>'
+        + '<div class="bar-track" style="width:' + w + '%">'
+        + '<div style="display:flex;height:100%">'
+        + (aP ? '<div style="width:'+aP+'%;background:var(--green)"></div>' : '')
+        + (pP ? '<div style="width:'+pP+'%;background:var(--amber)"></div>' : '')
+        + (iP ? '<div style="width:'+iP+'%;background:var(--red)"></div>' : '')
+        + '</div></div>'
+        + '<span class="bar-val" style="min-width:60px;font-size:11px">' + s.active + '/' + s.pending + '/' + s.inactive + '</span></div>';
+    }).join('');
+  }
+
+  c.innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="label">Total patients</div><div class="val">${total}</div></div>
+      <div class="dash-card"><div class="label">WC completion rate</div><div class="val" style="color:var(--green)">${total?Math.round(wcd/total*100):0}%</div><div class="sub">${wcd} / ${total}</div></div>
+      <div class="dash-card"><div class="label">Active assessment</div><div class="val" style="color:var(--green)">${overallActive}</div><div class="sub">WC done & not inactive in any module</div></div>
+      <div class="dash-card"><div class="label">Inactive assessment</div><div class="val" style="color:var(--red)">${overallInactive}</div><div class="sub">Inactive in at least one module</div></div>
+    </div>
+    <div class="dash-row">
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Condition distribution</div>${condBars}</div>
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Status by module</div>
+        ${statusBars('Nutritionist', diet)}
+        ${statusBars('Psychologist', well)}
+        ${statusBars('Physiotherapist', phys)}
+        <div style="display:flex;gap:12px;font-size:11px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--green);margin-right:4px"></span>Active assessment (completed)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--amber);margin-right:4px"></span>Pending assessment (in progress)</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--red);margin-right:4px"></span>Inactive assessment / Plan Ended</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:0 24px 24px">
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Nutritionist workload</div>${coachBars('diet','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Psychologist workload</div>${coachBars('wellness','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Physiotherapist workload</div>${coachBars('physio','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// PATIENT 360° VIEW — Added 2026-05-08
+// Read-only consolidated view of all patient data
+// ═══════════════════════════════════════════════
+
+let _360_returnPanel = null; // Which panel to return to
+let _360_returnTab = null;   // Which tab opened the 360
+
+function open360(id, panelId) {
+  const p = pat(id); if(!p) return;
+  _360_returnPanel = panelId;
+  _360_returnTab = currentTab;
+  const sp = document.getElementById(panelId);
+  sp.innerHTML = render360View(p);
+}
+
+function close360(id) {
+  // Return to the original edit panel
+  if(_360_returnTab === 'rm') openRMPanel(id);
+  else if(_360_returnTab === 'weekly') openWeeklyPanel(id);
+  else if(_360_returnTab === 'sales') openSalesEdit(id);
+  else if(['diet','wellness','physio'].includes(_360_returnTab)) openCoachPanel(_360_returnTab, id);
+  else openRMPanel(id);
+}
+
+function render360View(p) {
+  const id = p.id;
+  const s = p.seed;
+  const rm = p.rm || {};
+  const ps = planStatus(p);
+
+  // ─── Plan overview ───
+  const planSec = `<div class="sp-sec">
+    <h4>Plan overview</h4>
+    <div class="v360-row"><span class="v360-label">Condition</span><span class="v360-val">${condPill(s.condition_type)}</span></div>
+    <div class="v360-row"><span class="v360-label">Plan</span><span class="v360-val">${esc(s.plan_duration)} · ₹${esc(s.plan_price)}</span></div>
+    <div class="v360-row"><span class="v360-label">Purchase date</span><span class="v360-val">${esc(s.plan_purchase_date)}</span></div>
+    <div class="v360-row"><span class="v360-label">Expiry</span><span class="v360-val">${esc(s.expiry_date)} ${ps==='Active'?'<span class="pill pill-green" style="margin-left:4px">Active</span>':'<span class="pill pill-red" style="margin-left:4px">Expired</span>'}</span></div>
+    <div class="v360-row"><span class="v360-label">ISA owner</span><span class="v360-val">${esc(s.isa_owner)}</span></div>
+    ${s.mode_of_payment?'<div class="v360-row"><span class="v360-label">Payment</span><span class="v360-val">'+esc(s.mode_of_payment)+(s.payment_month?' · '+esc(s.payment_month):'')+'</span></div>':''}
+    ${s.sales_remarks?'<div style="font-size:11px;color:var(--tx2);margin-top:6px;padding:6px 8px;background:var(--bg);border-radius:var(--radius)"><b>Sales remarks:</b> '+esc(s.sales_remarks)+'</div>':''}
+  </div>`;
+
+  // ─── RM status ───
+  const wcAtts = rm.wc_attempts || [];
+  const wcDots = wcAtts.map(a => '<span class="dot '+attemptDotClass(a.remarks)+'"></span>').join('') || '<span style="font-size:11px;color:var(--tx3)">None</span>';
+  const rmSec = `<div class="sp-sec">
+    <h4>RM status</h4>
+    <div class="v360-row"><span class="v360-label">Health partner</span><span class="v360-val"><span class="ct">${esc(rm.health_partner)}</span></span></div>
+    <div class="v360-row"><span class="v360-label">Welcome call</span><span class="v360-val">${rm.welcome_call_done==='Yes'?'<span class="pill pill-green">Done</span>':'<span class="pill pill-amber">Pending</span>'}${rm.welcome_call_completion_date?' · '+esc(rm.welcome_call_completion_date):''}</span></div>
+    <div class="v360-row"><span class="v360-label">WC attempts (${wcAtts.length})</span><span class="v360-val"><div class="dots" style="justify-content:flex-end">${wcDots}</div></span></div>
+    <div class="v360-row"><span class="v360-label">Metabolic assessment</span><span class="v360-val">${rm.metabolic_assessment==='Yes'?'<span class="pill pill-green">Yes</span>':esc(rm.metabolic_assessment)}</span></div>
+    ${rm.final_remarks?'<div style="font-size:11px;color:var(--tx2);margin-top:6px;padding:6px 8px;background:var(--bg);border-radius:var(--radius)"><b>Remarks:</b> '+esc(rm.final_remarks)+'</div>':''}
+    ${rm.cs_agent?'<div class="v360-row" style="margin-top:6px"><span class="v360-label">CS escalation</span><span class="v360-val"><span class="ct">'+esc(rm.cs_agent)+'</span>'+(rm.cs_call_date?' · '+esc(rm.cs_call_date):'')+'</span></div>':''}
+  </div>`;
+
+  // ─── Coaching at a glance ───
+  function modCard(mod, label) {
+    const sec = p[mod] || {};
+    const months = sec.months || [];
+    const mCols = mod === 'physio' ? [1,4] : [1,2,3,4,5,6];
+    const statusCls = (sec.status||'').toLowerCase().includes('inactive') ? 'pill-red' :
+                      (sec.status||'').toLowerCase().includes('completed') ? 'pill-green' :
+                      (sec.status||'').toLowerCase().includes('pending') ? 'pill-amber' : 'pill-gray';
+    const dots = mCols.map(m => {
+      const cls = monthStatus(months, m);
+      return '<span class="dot '+cls+'" title="M'+m+'"></span>';
+    }).join('');
+
+    let csLine = '';
+    if(sec.cs_agent) {
+      csLine = '<div style="font-size:10px;color:var(--tx3);margin-top:4px">CS: '+esc(sec.cs_agent)+(sec.cs_call_date?' · '+esc(sec.cs_call_date):'')+'</div>';
+    }
+
+    return `<div class="v360-mod">
+      <div class="v360-mod-hd">
+        <span class="mod-title">${label}</span>
+        <span class="pill ${statusCls}" style="font-size:10px">${esc(sec.status)||'—'}</span>
+      </div>
+      <div class="v360-row"><span class="v360-label">Coach</span><span class="v360-val"><span class="ct">${esc(sec.coach)}</span></span></div>
+      <div class="v360-row"><span class="v360-label">Months</span><span class="v360-val"><div class="v360-dots">${dots}</div></span></div>
+      ${sec.current_status?'<div class="v360-notes"><b>Notes:</b> '+esc(sec.current_status)+'</div>':''}
+      ${csLine}
+    </div>`;
+  }
+
+  const coachSec = `<div class="sp-sec">
+    <h4>Coaching at a glance</h4>
+    ${modCard('diet','Nutritionist')}
+    ${modCard('wellness','Psychologist')}
+    ${modCard('physio','Physiotherapist')}
+  </div>`;
+
+  // ─── Weekly follow-ups ───
+  const entries = p.weekly?.entries || [];
+  const lastEntries = entries.slice(-4).reverse();
+  const weeklySec = `<div class="sp-sec">
+    <h4>Weekly follow-ups (${entries.length})</h4>
+    ${lastEntries.length ? lastEntries.map(e =>
+      '<div class="att-e"><span class="att-n">'+e.week+'</span><div class="att-b"><span class="att-d">Wk '+e.week+' · '+esc(e.date)+'</span><br>'+esc(e.remarks)+'</div></div>'
+    ).join('') : '<div style="font-size:12px;color:var(--tx3)">No entries yet</div>'}
+    ${entries.length > 4 ? '<div style="font-size:11px;color:var(--tx3);text-align:center;margin-top:4px">Showing last 4 of '+entries.length+'</div>' : ''}
+  </div>`;
+
+  // ─── Recent comments ───
+  const comments = p.comments || [];
+  const recentCmts = comments.slice(0, 4);
+  const cmtSec = `<div class="sp-sec">
+    <h4>Comments (${comments.length})</h4>
+    ${recentCmts.length ? recentCmts.map(c => {
+      const textHtml = esc(c.text).replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+      return '<div class="cmt-item"><div class="cmt-head"><div><span class="cmt-user">'+esc(c.user)+'</span><span class="cmt-role">'+esc(c.role)+'</span></div><span class="cmt-time">'+getTimeAgo(c.created_at)+'</span></div><div class="cmt-text">'+textHtml+'</div></div>';
+    }).join('') : '<div style="font-size:12px;color:var(--tx3)">No comments yet</div>'}
+    ${comments.length > 4 ? '<div style="font-size:11px;color:var(--tx3);text-align:center;margin-top:4px">'+comments.length+' total</div>' : ''}
+  </div>`;
+
+  // ─── Quick actions ───
+  const jumpSec = `<div class="sp-sec">
+    <h4>Open in</h4>
+    <div class="v360-jump">
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('sales');setTimeout(()=>openSalesEdit('${id}'),200)">Sales</button>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('rm');setTimeout(()=>openRMPanel('${id}'),200)">RM</button>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('diet');setTimeout(()=>openCoachPanel('diet','${id}'),200)">Nutritionist</button>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('wellness');setTimeout(()=>openCoachPanel('wellness','${id}'),200)">Psychologist</button>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('physio');setTimeout(()=>openCoachPanel('physio','${id}'),200)">Physiotherapist</button>
+      <button class="btn btn-ghost btn-sm" onclick="switchTab('weekly');setTimeout(()=>openWeeklyPanel('${id}'),200)">RM Weekly</button>
+    </div>
+  </div>`;
+
+  // ─── Assemble ───
+  return `
+    <div class="v360-hdr">
+      <button class="btn btn-ghost btn-sm" onclick="close360('${id}')" style="padding:3px 8px">← Back</button>
+      <h3 style="flex:1">${esc(s.patient_name)}</h3>
+      <button class="sp-cls" onclick="closeSP('${_360_returnPanel}')">✕</button>
+    </div>
+    <div style="padding:8px 20px;background:var(--bg);border-bottom:1px solid var(--border)">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--tx2)">${esc(s.contact_number)}${s.alt_number?' · Alt: '+esc(s.alt_number):''}</div>
+      <div class="v360-pills" style="margin-top:4px">
+        ${condPill(s.condition_type)}
+        ${planStatusPill(p)}
+        ${rm.welcome_call_done==='Yes'?'<span class="pill pill-green">WC Done</span>':'<span class="pill pill-amber">WC Pending</span>'}
+      </div>
+    </div>
+    ${planSec}
+    ${rmSec}
+    ${coachSec}
+    ${weeklySec}
+    ${cmtSec}
+    ${jumpSec}`;
+}
+
+
+// ═══════════════════════════════════════════════
+// RIGHT-CLICK CONTEXT MENU — Added 2026-05-08
+// ═══════════════════════════════════════════════
+
+document.addEventListener('click', () => {
+  document.getElementById('ctxMenu').classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+  if(e.key==='Escape') {
+    document.getElementById('ctxMenu').classList.remove('open');
+    const dlg = document.getElementById('cmtDialog');
+    const bd = document.getElementById('cmtBackdrop');
+    if(dlg) dlg.remove();
+    if(bd) bd.remove();
+  }
+});
+
+function attachContextMenu(tableContainerId) {
+  const container = document.getElementById(tableContainerId);
+  if(!container) return;
+  container.addEventListener('contextmenu', function(e) {
+    const row = e.target.closest('tr');
+    if(!row || row.closest('thead')) return;
+    e.preventDefault();
+    const onclick = row.getAttribute('onclick') || '';
+    const match = onclick.match(/'(\d+)'/);
+    if(!match) return;
+    ctxPatientId = match[1];
+    const menu = document.getElementById('ctxMenu');
+    menu.style.left = e.clientX + 'px';
+    menu.style.top = e.clientY + 'px';
+    menu.classList.add('open');
+    const rect = menu.getBoundingClientRect();
+    if(rect.right > window.innerWidth) menu.style.left = (e.clientX - rect.width) + 'px';
+    if(rect.bottom > window.innerHeight) menu.style.top = (e.clientY - rect.height) + 'px';
+  });
+}
+
+function ctxCopyName() {
+  const p = pat(ctxPatientId);
+  if(p) { navigator.clipboard.writeText(p.seed.patient_name); toast('Name copied'); }
+}
+function ctxCopyPhone() {
+  const p = pat(ctxPatientId);
+  if(p) { navigator.clipboard.writeText(p.seed.contact_number); toast('Phone copied'); }
+}
+function ctx360() {
+  if(!ctxPatientId) return;
+  // Determine the current tab's panel ID
+  const panelMap = {sales:'sp-sales', rm:'sp-rm', diet:'sp-diet', wellness:'sp-wellness', physio:'sp-physio', weekly:'sp-weekly'};
+  const panelId = panelMap[currentTab] || 'sp-rm';
+  // Open the panel first (so it exists), then replace with 360
+  const sp = document.getElementById(panelId);
+  if(sp) { sp.className = 'side-panel open'; selectedPatientId = ctxPatientId; }
+  open360(ctxPatientId, panelId);
+}
+
+function ctxAddComment() {
+  const p = pat(ctxPatientId);
+  if(!p) return;
+  const existing = document.getElementById('cmtDialog');
+  if(existing) existing.remove();
+  const oldBd = document.getElementById('cmtBackdrop');
+  if(oldBd) oldBd.remove();
+
+  const dlg = document.createElement('div');
+  dlg.id = 'cmtDialog';
+  dlg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:350;width:420px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg)';
+  dlg.innerHTML = `
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div><div style="font-size:15px;font-weight:600">Add Comment</div>
+      <div style="font-size:12px;color:var(--tx2);margin-top:2px">${esc(p.seed.patient_name)}</div></div>
+      <button onclick="document.getElementById('cmtDialog').remove();document.getElementById('cmtBackdrop').remove()" style="width:28px;height:28px;border-radius:6px;border:none;background:var(--bg3);cursor:pointer;font-size:16px;color:var(--tx3)">✕</button>
+    </div>
+    <div style="padding:16px 20px">
+      <div class="cmt-input-wrap">
+        <div class="mention-dropdown" id="cmtMentionDrop"></div>
+        <textarea id="cmtDialogText" placeholder="Type your comment... Use @ to tag someone" rows="3"></textarea>
+      </div>
+      <div class="cmt-actions">
+        <span class="cmt-hint">Use <b>@name</b> to tag & notify</span>
+        <button class="btn btn-primary btn-sm" onclick="submitDialogComment('${p.id}')">Post</button>
+      </div>
+    </div>
+    ${renderRecentComments(p)}`;
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'cmtBackdrop';
+  backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:340;background:rgba(0,0,0,0.2)';
+  backdrop.onclick = () => { dlg.remove(); backdrop.remove(); };
+  document.body.appendChild(backdrop);
+  document.body.appendChild(dlg);
+  const ta = document.getElementById('cmtDialogText');
+  setupMentionAutocomplete(ta, 'cmtMentionDrop');
+  ta.focus();
+}
+
+async function submitDialogComment(patientId) {
+  const ta = document.getElementById('cmtDialogText');
+  const text = ta.value.trim();
+  if(!text) { toast('Write a comment first', false); return; }
+  try {
+    const res = await apiPost('/api/comments', {
+      patient_id: parseInt(patientId), text, user: getUser(), role: getRole()
+    });
+    const p = pat(patientId);
+    if(p) {
+      p.comments = p.comments || [];
+      p.comments.unshift({id:res.id, user:getUser(), role:getRole(), text, created_at:res.created_at});
+    }
+    toast('Comment posted ✓');
+    document.getElementById('cmtDialog')?.remove();
+    document.getElementById('cmtBackdrop')?.remove();
+    loadNotifications();
+    if(selectedPatientId === patientId) refreshActivePanel(patientId);
+  } catch(e) { toast('Failed: '+e.message, false); }
+}
+
+function refreshActivePanel(id) {
+  if(currentTab==='rm') openRMPanel(id);
+  else if(currentTab==='weekly') openWeeklyPanel(id);
+  else if(['diet','wellness','physio'].includes(currentTab)) openCoachPanel(currentTab, id);
+  else if(currentTab==='sales') openSalesEdit(id);
+}
+
+// ═══════════════════════════════════════════════
+// COMMENT SECTION — Added 2026-05-08
+// ═══════════════════════════════════════════════
+
+function renderCommentSection(patientId) {
+  const p = pat(patientId);
+  if(!p) return '';
+  const comments = p.comments || [];
+  const cmtHtml = comments.length ? comments.map(c => {
+    const timeAgo = getTimeAgo(c.created_at);
+    const textHtml = esc(c.text).replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+    const canDel = c.user === getUser() || getRole() === 'admin';
+    return `<div class="cmt-item">
+      <div class="cmt-head">
+        <div><span class="cmt-user">${esc(c.user)}</span><span class="cmt-role">${esc(c.role)}</span></div>
+        <div><span class="cmt-time">${timeAgo}</span>${canDel?'<button class="cmt-del" onclick="deleteComment('+c.id+',\''+patientId+'\')" title="Delete">✕</button>':''}</div>
+      </div>
+      <div class="cmt-text">${textHtml}</div>
+    </div>`;
+  }).join('') : '<div class="cmt-empty">No comments yet</div>';
+
+  return `<div class="cmt-section">
+    <h4>Comments (${comments.length})</h4>
+    <div class="cmt-list">${cmtHtml}</div>
+    <div class="cmt-input-wrap">
+      <div class="mention-dropdown" id="spMentionDrop-${patientId}"></div>
+      <textarea id="spCmtText-${patientId}" placeholder="Add a comment... @ to tag someone" rows="2"></textarea>
+    </div>
+    <div class="cmt-actions">
+      <span class="cmt-hint">@ to tag & notify</span>
+      <button class="btn btn-primary btn-sm" onclick="submitPanelComment('${patientId}')">Post</button>
+    </div>
+  </div>`;
+}
+
+function renderRecentComments(p) {
+  const comments = p.comments || [];
+  if(!comments.length) return '';
+  const cmtHtml = comments.slice(0, 5).map(c => {
+    const timeAgo = getTimeAgo(c.created_at);
+    const textHtml = esc(c.text).replace(/@(\w+)/g, '<span class="mention">@$1</span>');
+    return `<div class="cmt-item">
+      <div class="cmt-head"><div><span class="cmt-user">${esc(c.user)}</span><span class="cmt-role">${esc(c.role)}</span></div><span class="cmt-time">${timeAgo}</span></div>
+      <div class="cmt-text">${textHtml}</div>
+    </div>`;
+  }).join('');
+  return `<div style="padding:12px 20px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--tx3);margin-bottom:8px">Recent Comments</div>
+    <div style="max-height:180px;overflow-y:auto">${cmtHtml}</div>
+    ${comments.length > 5 ? '<div style="font-size:11px;color:var(--tx3);margin-top:4px;text-align:center">'+comments.length+' total</div>' : ''}
+  </div>`;
+}
+
+function initPanelMentions(patientId) {
+  setTimeout(() => {
+    const ta = document.getElementById('spCmtText-'+patientId);
+    if(ta) setupMentionAutocomplete(ta, 'spMentionDrop-'+patientId);
+  }, 50);
+}
+
+async function submitPanelComment(patientId) {
+  const ta = document.getElementById('spCmtText-'+patientId);
+  if(!ta) return;
+  const text = ta.value.trim();
+  if(!text) { toast('Write a comment first', false); return; }
+  try {
+    const res = await apiPost('/api/comments', {
+      patient_id: parseInt(patientId), text, user: getUser(), role: getRole()
+    });
+    const p = pat(patientId);
+    if(p) {
+      p.comments = p.comments || [];
+      p.comments.unshift({id:res.id, user:getUser(), role:getRole(), text, created_at:res.created_at});
+    }
+    toast('Comment posted ✓');
+    loadNotifications();
+    refreshActivePanel(patientId);
+  } catch(e) { toast('Failed: '+e.message, false); }
+}
+
+async function deleteComment(commentId, patientId) {
+  if(!confirm('Delete this comment?')) return;
+  try {
+    await fetch(API+'/api/comments/'+commentId, {method:'DELETE'});
+    const p = pat(patientId);
+    if(p) p.comments = (p.comments||[]).filter(c=>c.id !== commentId);
+    toast('Comment deleted');
+    refreshActivePanel(patientId);
+  } catch(e) { toast('Failed to delete', false); }
+}
+
+
+// ═══════════════════════════════════════════════
+// @MENTION AUTOCOMPLETE — Added 2026-05-08
+// ═══════════════════════════════════════════════
+
+function setupMentionAutocomplete(textarea, dropdownId) {
+  let mentionActive = false;
+  let activeIdx = 0;
+
+  textarea.addEventListener('input', function() {
+    const val = this.value;
+    const cursor = this.selectionStart;
+    let atPos = -1;
+    for(let i = cursor - 1; i >= 0; i--) {
+      if(val[i] === '@') { if(i === 0 || /\s/.test(val[i-1])) { atPos = i; } break; }
+      if(/\s/.test(val[i])) break;
+    }
+    const dd = document.getElementById(dropdownId);
+    if(!dd) return;
+    if(atPos === -1) { dd.classList.remove('open'); mentionActive = false; return; }
+    const query = val.substring(atPos+1, cursor).toLowerCase();
+    const matches = allUsers.filter(u => {
+      if(u.name === getUser()) return false;
+      return u.name.toLowerCase().includes(query) || u.role.toLowerCase().includes(query);
+    }).slice(0, 6);
+    if(!matches.length) { dd.classList.remove('open'); mentionActive = false; return; }
+    mentionActive = true;
+    activeIdx = 0;
+    dd.innerHTML = matches.map((u,i) =>
+      `<div class="mention-opt ${i===0?'active':''}" data-name="${esc(u.name)}" onmousedown="insertMention(this,'${dropdownId}')">
+        <span class="mo-name">${esc(u.name)}</span><span class="mo-role">${u.role}</span>
+      </div>`).join('');
+    dd.classList.add('open');
+  });
+
+  textarea.addEventListener('keydown', function(e) {
+    if(!mentionActive) return;
+    const dd = document.getElementById(dropdownId);
+    const opts = dd?.querySelectorAll('.mention-opt');
+    if(!opts || !opts.length) return;
+    if(e.key === 'ArrowDown') {
+      e.preventDefault();
+      opts[activeIdx].classList.remove('active');
+      activeIdx = (activeIdx + 1) % opts.length;
+      opts[activeIdx].classList.add('active');
+      opts[activeIdx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'ArrowUp') {
+      e.preventDefault();
+      opts[activeIdx].classList.remove('active');
+      activeIdx = (activeIdx - 1 + opts.length) % opts.length;
+      opts[activeIdx].classList.add('active');
+      opts[activeIdx].scrollIntoView({block:'nearest'});
+    } else if(e.key === 'Enter' || e.key === 'Tab') {
+      if(mentionActive && opts.length) { e.preventDefault(); insertMention(opts[activeIdx], dropdownId); }
+    } else if(e.key === 'Escape') {
+      dd.classList.remove('open'); mentionActive = false;
+    }
+  });
+
+  textarea.addEventListener('blur', function() {
+    setTimeout(() => { document.getElementById(dropdownId)?.classList.remove('open'); mentionActive = false; }, 150);
+  });
+}
+
+function insertMention(el, dropdownId) {
+  const name = el.getAttribute('data-name');
+  const dd = document.getElementById(dropdownId);
+  const ta = dd?.parentElement?.querySelector('textarea');
+  if(!ta) return;
+  const val = ta.value;
+  const cursor = ta.selectionStart;
+  let atPos = -1;
+  for(let i = cursor - 1; i >= 0; i--) {
+    if(val[i] === '@') { atPos = i; break; }
+    if(/\s/.test(val[i])) break;
+  }
+  if(atPos === -1) return;
+  const firstName = name.split(' ')[0];
+  const before = val.substring(0, atPos);
+  const after = val.substring(cursor);
+  ta.value = before + '@' + firstName + ' ' + after;
+  ta.selectionStart = ta.selectionEnd = before.length + firstName.length + 2;
+  dd.classList.remove('open');
+  ta.focus();
+}
+
+
+// ═══════════════════════════════════════════════
+// PANEL CLOSE
+// ═══════════════════════════════════════════════
+function closeSP(id) {
+  const el = document.getElementById(id);
+  if(el) el.classList.remove('open');
+  selectedPatientId = null;
+}
+
+// ═══════════════════════════════════════════════
+// BOOT — Changed 2026-05-04: init() is now called by showCRM() after login
+// checkSession() runs automatically on load (see IIFE above)
+// ═══════════════════════════════════════════════
+</script>
+</body>
+</html>

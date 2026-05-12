@@ -1,0 +1,7 @@
+# Install with: pip install -r requirements-dev.txt
+# Use this for local development AND for running migrate.py.
+# Production (Vercel) uses the slimmer requirements.txt.
+
+-r requirements.txt
+uvicorn==0.30.6
+pandas==2.2.3
