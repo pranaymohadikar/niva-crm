@@ -1314,9 +1314,6 @@ function renderCoachTab(mod) {
   const maxM = mod==='physio'?4:6;
   const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
 
-  let active = patients.filter(p=>p[mod]?.status?.toLowerCase().includes('completed')).length;
-  let inactive = patients.filter(p=>p[mod]?.status?.toLowerCase().includes('inactive')).length;
-
   // Head coach team performance panel — Added 2026-05-06
   const teamPanel = (isHeadCoach(mod) || getRole()==='admin') ? renderTeamPerformance(mod) : '';
 
@@ -1329,8 +1326,8 @@ function renderCoachTab(mod) {
       <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
       <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
       <div class="kpi-strip">
-        <span class="kpi kpi-green">Active assessment: ${active}</span>
-        <span class="kpi kpi-red">Inactive assessment: ${inactive}</span>
+        <span class="kpi kpi-green" id="${mod}-kpi-active">Active assessment: 0</span>
+        <span class="kpi kpi-red" id="${mod}-kpi-inactive">Inactive assessment: 0</span>
       </div>
     </div>
     <div class="main-area"><div class="table-area" id="${mod}-table"></div><div class="side-panel" id="sp-${mod}"></div></div>`;
@@ -1345,10 +1342,23 @@ function renderCoachTable(mod) {
   const c = document.getElementById(mod+'-table'); if(!c) return;
   const sels = document.querySelectorAll('#tab-'+mod+' .filter-sel');
   const search = document.querySelector('#tab-'+mod+' .search')?.value||'';
+  const planStatusFilter = sels[3]?.value || null;
   const filtered = filterPatients(patients,{search,status:sels[0]?.value?sels[0].value:null,section:sels[0]?.value?mod:null,
-    coach:sels[1]?.value||null,condition:sels[2]?.value||null,planStatus:sels[3]?.value||null});
+    coach:sels[1]?.value||null,condition:sels[2]?.value||null,planStatus:planStatusFilter});
   // Filter by coach for the right section
   const list = sels[1]?.value ? filtered.filter(p=>p[mod]?.coach===sels[1].value) : filtered;
+
+  // KPI pills react ONLY to Plan Status filter, not search/status/coach/condition — Changed 2026-05-12
+  const pillScope = planStatusFilter
+    ? patients.filter(p => planStatus(p) === planStatusFilter)
+    : patients;
+  const active = pillScope.filter(p=>p[mod]?.status?.toLowerCase().includes('completed')).length;
+  const inactive = pillScope.filter(p=>p[mod]?.status?.toLowerCase().includes('inactive')).length;
+  const kpiA = document.getElementById(mod+'-kpi-active');
+  const kpiI = document.getElementById(mod+'-kpi-inactive');
+  if(kpiA) kpiA.textContent = `Active assessment: ${active}`;
+  if(kpiI) kpiI.textContent = `Inactive assessment: ${inactive}`;
+
   const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
   const coachField = mod==='physio'?'coach':'coach';
 
