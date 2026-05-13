@@ -2135,7 +2135,7 @@ function renderDashboard() {
     <div class="dash-grid">
       <div class="dash-card"><div class="label">Total patients</div><div class="val">${total}</div></div>
       <div class="dash-card"><div class="label">WC completion rate</div><div class="val" style="color:var(--green)">${total?Math.round(wcd/total*100):0}%</div><div class="sub">${wcd} / ${total}</div></div>
-      <div class="dash-card"><div class="label">Active assessment</div><div class="val" style="color:var(--green)">${overallActive}</div><div class="sub">WC done & not inactive in any module</div></div>
+      <div class="dash-card"><div class="label">Active assessment</div><div class="val" style="color:var(--green)">${overallActive}</div><div class="sub">Currently engaged in coaching</div></div>
       <div class="dash-card"><div class="label">Inactive assessment</div><div class="val" style="color:var(--red)">${overallInactive}</div><div class="sub">Inactive in at least one module</div></div>
     </div>
     <div class="dash-row">
@@ -2152,9 +2152,9 @@ function renderDashboard() {
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;padding:0 24px 24px">
-      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Nutritionist workload</div>${coachBars('diet','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
-      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Psychologist workload</div>${coachBars('wellness','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
-      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Physiotherapist workload</div>${coachBars('physio','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Nutritionist Assessments</div>${coachBars('diet','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Psychologist Assessments</div>${coachBars('wellness','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Physiotherapist Assessments</div>${coachBars('physio','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
     </div>`;
 }
 
