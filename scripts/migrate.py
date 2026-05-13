@@ -105,7 +105,27 @@ db = SessionLocal()
 
 # ─── STEP 2: READ DATA ───
 print(f"\nReading {CSV_PATH}...")
-csv_df = pd.read_csv(CSV_PATH, low_memory=False)
+# Try common encodings — Excel CSV exports on Windows are often cp1252 — Changed 2026-05-12
+# Use python engine + on_bad_lines='skip' to tolerate unquoted commas in cells.
+csv_df = None
+for enc in ("utf-8", "utf-8-sig", "cp1252", "latin-1"):
+    try:
+        csv_df = pd.read_csv(
+            CSV_PATH,
+            encoding=enc,
+            engine="python",
+            on_bad_lines="warn",  # warn but don't crash on malformed rows
+        )
+        print(f"  Encoding detected: {enc}")
+        break
+    except UnicodeDecodeError:
+        continue
+    except Exception as e:
+        print(f"  Tried {enc}: {type(e).__name__}: {str(e)[:100]}")
+        continue
+if csv_df is None:
+    print(f"  ERROR: could not parse {CSV_PATH} with any common encoding.")
+    sys.exit(1)
 csv_real = csv_df.dropna(subset=["Patient Name"]).copy()
 csv_real.reset_index(drop=True, inplace=True)
 csv_real["_phone"] = csv_real["Mobile"].astype(str).str.replace(" ","").str.strip()
@@ -115,7 +135,7 @@ MAX_ROWS = 2000
 print(f"Reading {EXCEL_PATH}...")
 rm_df = pd.read_excel(EXCEL_PATH, sheet_name="Niva-RM (2)", nrows=MAX_ROWS)
 diet_df = pd.read_excel(EXCEL_PATH, sheet_name="Niva - Diet", nrows=MAX_ROWS)
-phys_df = pd.read_excel(EXCEL_PATH, sheet_name="Niva - Physio", nrows=MAX_ROWS)
+phys_df = pd.read_excel(EXCEL_PATH, sheet_name="Niva-Physio_test", nrows=MAX_ROWS)
 well_df = pd.read_excel(EXCEL_PATH, sheet_name="Niva - Wellness (2)", nrows=MAX_ROWS)
 weekly_df = pd.read_excel(EXCEL_PATH, sheet_name="Niva - RM Weekly", nrows=MAX_ROWS)
 coaches_df = pd.read_excel(EXCEL_PATH, sheet_name="Coaches Sheet")
@@ -381,7 +401,10 @@ for idx in range(len(csv_real)):
     db.add(cw); db.flush()
     if well_row is not None:
         for m in range(1, 7):
-            ad = safe_str(get_col(well_row,"Yes")) if m==1 else safe_str(get_col(well_row,f"Month {m} Assessment Completed (Y/N)"))
+            # Fixed 2026-05-12: previously read from a column literally named "Yes"
+            # for m==1, which only existed in an older Excel template. New template
+            # uses the standard "Month 1 Assessment Completed (Y/N)" naming.
+            ad = safe_str(get_col(well_row, f"Month {m} Assessment Completed (Y/N)"))
             cbt = safe_str(get_col(well_row,"CBT Tools")) if m==1 else safe_str(get_col(well_row,"CBT Tools2")) if m==2 else None
             com = safe_str(get_col(well_row,"Comments")) if m==2 else None
             atts = []
