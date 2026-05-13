@@ -967,7 +967,6 @@ async function saveSalesEdit(id) {
 // ═══════════════════════════════════════════════
 function renderRM() {
   const c = document.getElementById('tab-rm');
-  const wcd = patients.filter(p=>p.rm?.welcome_call_done==='Yes').length;
   c.innerHTML = `
     <div class="filter-bar">
       <input class="search" placeholder="Search patient..." oninput="renderRMTable()">
@@ -977,8 +976,8 @@ function renderRM() {
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Yes','No'],null,'All WC Status')}</select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
       <div class="kpi-strip">
-        <span class="kpi kpi-green">WC Done: ${wcd}</span>
-        <span class="kpi kpi-amber">Pending: ${patients.length-wcd}</span>
+        <span class="kpi kpi-green" id="rm-kpi-wcdone">WC Done: 0</span>
+        <span class="kpi kpi-amber" id="rm-kpi-pending">Pending: 0</span>
       </div>
     </div>
     <div class="main-area"><div class="table-area" id="rm-table"></div><div class="side-panel" id="sp-rm"></div></div>`;
@@ -989,7 +988,19 @@ function renderRMTable() {
   const c = document.getElementById('rm-table'); if(!c) return;
   const sels = document.querySelectorAll('#tab-rm .filter-sel');
   const search = document.querySelector('#tab-rm .search')?.value||'';
-  const filtered = filterPatients(patients,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:sels[4]?.value||null});
+  const planStatusFilter = sels[4]?.value || null;
+  const filtered = filterPatients(patients,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:planStatusFilter});
+
+  // KPI pills react ONLY to Plan Status filter, not search/condition/HP/WC — Changed 2026-05-12
+  const pillScope = planStatusFilter
+    ? patients.filter(p => planStatus(p) === planStatusFilter)
+    : patients;
+  const wcd = pillScope.filter(p=>p.rm?.welcome_call_done==='Yes').length;
+  const wcp = pillScope.length - wcd;
+  const kpiDone = document.getElementById('rm-kpi-wcdone');
+  const kpiPending = document.getElementById('rm-kpi-pending');
+  if(kpiDone) kpiDone.textContent = `WC Done: ${wcd}`;
+  if(kpiPending) kpiPending.textContent = `Pending: ${wcp}`;
 
   let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Plan</th><th>Purchase Date</th><th>HP</th><th>WC Attempts</th><th>WC Done</th><th>Nutritionist</th><th>Psychologist</th><th>Physiotherapist</th><th>Remarks</th></tr></thead><tbody>';
   filtered.forEach((p,i) => {
