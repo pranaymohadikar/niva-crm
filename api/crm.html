@@ -50,15 +50,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .kpi-red{background:var(--red-bg);color:var(--red-tx)}
 .kpi-blue{background:var(--acc-bg);color:var(--acc-tx)}
 .kpi-purple{background:var(--purple-bg);color:var(--purple-tx)}
-/* Pagination — Added 2026-05-14 IST */
-.pg-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-top:1px solid var(--border);background:var(--bg2);font-size:12px}
-.pg-info{color:var(--tx3)}
-.pg-nav{display:flex;gap:4px;align-items:center}
-.pg-btn{padding:4px 10px;border:1px solid var(--border);background:var(--bg1);color:var(--tx);border-radius:4px;cursor:pointer;font-size:12px;min-width:30px}
-.pg-btn:hover:not(:disabled){background:var(--bg3)}
-.pg-btn:disabled{opacity:0.4;cursor:not-allowed}
-.pg-cur{background:var(--acc);color:#fff;border-color:var(--acc)}
-.pg-cur:hover{background:var(--acc)!important}
 .main-area{display:flex;height:calc(100vh - 56px - 42px - 50px);overflow:hidden}
 .table-area{flex:1;overflow:auto}
 .side-panel{width:440px;border-left:1px solid var(--border);background:var(--bg2);overflow-y:auto;display:none;flex-shrink:0}
@@ -473,12 +464,10 @@ async function toggleNotifPanel() {
     }
     list.innerHTML = notifs.map(n => {
       const timeAgo = getTimeAgo(n.created_at);
-      const sectionLabel = {rm:'RM',diet:'Nutritionist',wellness:'Psychologist',physio:'Physiotherapist',weekly:'RM Weekly',comment:'Comment',followup:'RM Weekly'}[n.section]||n.section;
-      // Follow-up notifications use the server-provided message verbatim — Re-added 2026-05-14 IST
-      let msgText;
-      if (n.section === 'followup') msgText = esc(n.message || 'Follow-up reminder');
-      else if (n.section === 'comment') msgText = 'commented on '+esc(n.patient_name||'a patient');
-      else msgText = 'mentioned you in '+esc(n.patient_name||'a patient')+'\'s '+sectionLabel+' remarks';
+      const sectionLabel = {rm:'RM',diet:'Nutritionist',wellness:'Psychologist',physio:'Physiotherapist',weekly:'RM Weekly',comment:'Comment'}[n.section]||n.section;
+      const msgText = n.section==='comment'
+        ? 'commented on '+esc(n.patient_name||'a patient')
+        : 'mentioned you in '+esc(n.patient_name||'a patient')+'\'s '+sectionLabel+' remarks';
       return '<div class="notif-item '+(n.read?'':'unread')+'" onclick="openNotifPatient('+n.patient_id+',\''+n.section+'\','+n.id+')">'
         + '<div class="n-sender">'+esc(n.sender)+'</div>'
         + '<div class="n-msg">'+msgText+'</div>'
@@ -504,8 +493,8 @@ async function openNotifPatient(patientId, section, notifId) {
   await fetch(API+'/api/notifications/'+notifId+'/read', {method:'PUT'});
   document.getElementById('notifPanel').classList.remove('open');
   loadNotifications();
-  // Navigate to the right tab and open patient. 'followup' → RM Weekly tab — Re-added 2026-05-14 IST
-  const tabMap = {rm:'rm',diet:'diet',wellness:'wellness',physio:'physio',weekly:'weekly',comment:'rm',followup:'weekly'};
+  // Navigate to the right tab and open patient
+  const tabMap = {rm:'rm',diet:'diet',wellness:'wellness',physio:'physio',weekly:'weekly',comment:'rm'};
   const tab = tabMap[section]||'rm';
   switchTab(tab);
   setTimeout(() => {
@@ -720,54 +709,6 @@ function planStatusPill(p) {
   return '<span class="pill pill-gray">Unknown</span>';
 }
 function esc(s) { if(s==null) return '—'; const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
-
-// Follow-up due calculator — Added 2026-05-12
-// Rules:
-//   - 7 days from last weekly follow-up date
-//   - If no prior follow-up: 7 days after welcome_call_completion_date
-//   - If plan expired: returns {kind:'expired'}
-//   - If WC not done: returns {kind:'awaiting_wc'}
-//   - Otherwise: {kind:'due', dueDate:'YYYY-MM-DD', daysOffset:N}
-//     daysOffset < 0 means overdue by that many days
-function nextFollowupDue(p) {
-  if (planStatus(p) === 'Expired') return { kind: 'expired' };
-  if (p.rm?.welcome_call_done !== 'Yes') return { kind: 'awaiting_wc' };
-
-  // Find the most recent weekly entry date — Added 2026-05-12
-  const entries = p.weekly?.entries || [];
-  let lastDate = null;
-  for (const e of entries) {
-    if (e.date && (!lastDate || e.date > lastDate)) lastDate = e.date;
-  }
-
-  // If no follow-up yet, anchor to WC completion date
-  const anchor = lastDate || p.rm?.welcome_call_completion_date;
-  if (!anchor) return { kind: 'awaiting_wc' };  // WC done flag set but no date
-
-  // Add 7 days
-  const d = new Date(anchor);
-  if (isNaN(d.getTime())) return { kind: 'awaiting_wc' };  // unparseable
-  d.setDate(d.getDate() + 7);
-  const dueDate = d.toISOString().split('T')[0];
-
-  const today = new Date().toISOString().split('T')[0];
-  const todayD = new Date(today);
-  const daysOffset = Math.round((d - todayD) / (1000 * 60 * 60 * 24));
-
-  return { kind: 'due', dueDate, daysOffset };
-}
-
-// Render follow-up due as a styled cell — Added 2026-05-12
-function followupDueCell(p) {
-  const r = nextFollowupDue(p);
-  if (r.kind === 'expired') return '<span class="pill pill-gray">Plan Ended</span>';
-  if (r.kind === 'awaiting_wc') return '<span class="pill pill-gray">Awaiting WC</span>';
-  const { dueDate, daysOffset } = r;
-  if (daysOffset < 0) return '<span class="pill pill-red">' + Math.abs(daysOffset) + ' days overdue</span>';
-  if (daysOffset === 0) return '<span class="pill pill-amber">Due today</span>';
-  if (daysOffset <= 3) return '<span class="pill pill-amber">Due in ' + daysOffset + ' day' + (daysOffset>1?'s':'') + '</span>';
-  return '<span class="pill pill-green">' + dueDate + '</span>';
-}
 function optHtml(list, selected, placeholder) {
   let h = '<option value="">'+(placeholder||'— Select —')+'</option>';
   (list||[]).forEach(v => { h += '<option'+(v===selected?' selected':'')+'>'+esc(v)+'</option>'; });
@@ -841,78 +782,6 @@ function filterPatients(list, filters) {
 }
 
 // ═══════════════════════════════════════════════
-// PAGINATION — Added 2026-05-14 IST
-// Client-side, 100 per page. Per-tab state. Resets to page 1 on filter change.
-// ═══════════════════════════════════════════════
-const PAGE_SIZE = 100;
-const pageState = { sales: 1, rm: 1, weekly: 1, diet: 1, wellness: 1, physio: 1 };
-// Track filter snapshots per tab to detect changes and auto-reset to page 1 — Added 2026-05-14 IST
-const filterSnapshot = { sales: '', rm: '', weekly: '', diet: '', wellness: '', physio: '' };
-
-function paginate(list, tabKey) {
-  const total = list.length;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  // Clamp current page in case it went out of bounds after filtering
-  if (pageState[tabKey] > totalPages) pageState[tabKey] = totalPages;
-  if (pageState[tabKey] < 1) pageState[tabKey] = 1;
-  const page = pageState[tabKey];
-  const start = (page - 1) * PAGE_SIZE;
-  const end = Math.min(start + PAGE_SIZE, total);
-  return { page, totalPages, start, end, total, slice: list.slice(start, end) };
-}
-
-function paginationBar(tabKey, info, rerenderFn) {
-  if (info.total <= PAGE_SIZE) return '';  // No bar needed if everything fits
-  const { page, totalPages, start, end, total } = info;
-  // Build page-number buttons: show first, last, current, and ±2 around current
-  const nums = new Set([1, totalPages, page-1, page, page+1, page-2, page+2]);
-  const pages = [...nums].filter(n => n >= 1 && n <= totalPages).sort((a,b)=>a-b);
-  let btns = '';
-  let prev = 0;
-  for (const n of pages) {
-    if (n - prev > 1) btns += '<span style="padding:0 4px;color:var(--tx3)">…</span>';
-    btns += `<button class="pg-btn${n===page?' pg-cur':''}" onclick="pageState['${tabKey}']=${n};${rerenderFn}">${n}</button>`;
-    prev = n;
-  }
-  return `<div class="pg-bar">
-    <span class="pg-info">Showing ${start+1}–${end} of ${total}</span>
-    <div class="pg-nav">
-      <button class="pg-btn" ${page<=1?'disabled':''} onclick="pageState['${tabKey}']=${Math.max(1,page-1)};${rerenderFn}">‹ Prev</button>
-      ${btns}
-      <button class="pg-btn" ${page>=totalPages?'disabled':''} onclick="pageState['${tabKey}']=${Math.min(totalPages,page+1)};${rerenderFn}">Next ›</button>
-    </div>
-  </div>`;
-}
-
-// Reset page to 1 if filters changed since last render. Returns true if reset happened.
-function maybeResetPage(tabKey, filterKey) {
-  if (filterSnapshot[tabKey] !== filterKey) {
-    filterSnapshot[tabKey] = filterKey;
-    pageState[tabKey] = 1;
-    return true;
-  }
-  return false;
-}
-
-// ═══════════════════════════════════════════════
-// SEARCH DEBOUNCING — Added 2026-05-14 IST
-// 300ms after last keystroke triggers the filter. Reduces re-renders
-// while typing fast. Each tab has its own debounced wrapper.
-// ═══════════════════════════════════════════════
-function debounce(fn, delay) {
-  let t = null;
-  return function(...args) {
-    if (t) clearTimeout(t);
-    t = setTimeout(() => fn.apply(this, args), delay);
-  };
-}
-const debouncedRenderSales   = debounce(() => renderSalesTable(), 300);
-const debouncedRenderRM      = debounce(() => renderRMTable(), 300);
-const debouncedRenderWeekly  = debounce(() => renderWeeklyTable(), 300);
-const debouncedRenderCoaches = debounce(() => renderCoachesTable(), 300);
-const debouncedRenderCoach   = debounce(mod => renderCoachTable(mod), 300);
-
-// ═══════════════════════════════════════════════
 // SALES TAB
 // ═══════════════════════════════════════════════
 function renderSales() {
@@ -922,12 +791,11 @@ function renderSales() {
 
   c.innerHTML = `
     <div class="filter-bar">
-      <input class="search" placeholder="Search patient name or phone..." oninput="debouncedRenderSales()">
+      <input class="search" placeholder="Search patient name or phone..." oninput="renderSalesTable()">
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(dropdowns.durations,null,'All Durations')}</select>
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(['Active','Expired','Unknown'],null,'All Plan Status')}</select>
       ${canEdit('seed')?'<button class="btn btn-primary" onclick="openSalesAdd()" style="margin-left:auto">+ Add new patient</button>':''}
-      ${getRole()==='admin'?'<button class="btn btn-ghost" onclick="document.getElementById(\'sales-csv-input\').click()" style="margin-left:8px">⬆ Upload Sales CSV</button><input type="file" id="sales-csv-input" accept=".csv" style="display:none" onchange="uploadSalesCSV(this)">':''}
       <div class="kpi-strip">
         <span class="kpi kpi-green">Active: ${activePlans}</span>
         <span class="kpi kpi-red">Expired: ${expiredPlans}</span>
@@ -942,43 +810,6 @@ function renderSales() {
   renderSalesTable();
 }
 
-// Sales CSV upload handler — Added 2026-05-14 IST
-async function uploadSalesCSV(input) {
-  const f = input.files[0];
-  if (!f) return;
-  if (!confirm(`Upload "${f.name}"?\n\nNew patients (matched by name + phone + purchase date) will be added. Existing patients will be skipped and never modified.`)) {
-    input.value = '';
-    return;
-  }
-  const fd = new FormData();
-  fd.append('file', f);
-  const role = getRole(), user = getUser();
-  try {
-    const res = await fetch(`${API}/api/sync/sales?user=${encodeURIComponent(user)}&role=${encodeURIComponent(role)}`, {
-      method: 'POST', body: fd
-    });
-    const data = await res.json();
-    if (!res.ok) { alert('Upload failed: ' + (data.detail || res.status)); input.value=''; return; }
-    let msg = `Sales CSV processed:\n\n`
-      + `✓ Added: ${data.added} new patient(s)\n`
-      + `• Skipped (already exist): ${data.skipped_existing}\n`
-      + `• Skipped (incomplete rows): ${data.skipped_incomplete}\n`;
-    if (data.error_count > 0) {
-      msg += `\n⚠ ${data.error_count} row error(s):\n` + data.errors.join('\n');
-    }
-    alert(msg);
-    // Reload patients so newly added ones appear — Added 2026-05-14 IST
-    if (data.added > 0) {
-      try { patients = await (await fetch(API+'/api/patients')).json(); } catch(e){}
-      renderSales();
-    }
-  } catch (e) {
-    alert('Upload error: ' + e.message);
-  } finally {
-    input.value = '';  // reset so the same file can be re-selected
-  }
-}
-
 function renderSalesTable() {
   const c = document.getElementById('sales-table');
   if(!c) return;
@@ -987,18 +818,14 @@ function renderSalesTable() {
   const cond = sels[0]?.value||'';
   const dur = sels[1]?.value||'';
   const ps = sels[2]?.value||''; // Plan status filter — Added 2026-05-06
-  // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  maybeResetPage('sales', [search,cond,dur,ps].join('|'));
   const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
   const filtered = filterPatients(sorted, {search, condition:cond, duration:dur, planStatus:ps||null});
-  // Pagination — Added 2026-05-14 IST
-  const pg = paginate(filtered, 'sales');
 
   let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Duration</th><th>Plan Price</th><th>Purchase Date</th><th>Expiry</th><th>Plan Status</th><th>WC Status</th><th>Actions</th></tr></thead><tbody>';
-  pg.slice.forEach((p,i) => {
+  filtered.forEach((p,i) => {
     const wcDone = p.rm?.welcome_call_done==='Yes';
     h += `<tr onclick="openSalesEdit('${p.id}')">
-      <td>${pg.start+i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td>
+      <td>${i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td>
       <td class="ph">${esc(p.seed.contact_number)}</td>
       <td>${condPill(p.seed.condition_type)}</td><td>${esc(p.seed.plan_duration)}</td>
       <td class="ph">${p.seed.plan_price?'₹'+parseInt(p.seed.plan_price).toLocaleString():'—'}</td>
@@ -1009,7 +836,6 @@ function renderSalesTable() {
     </tr>`;
   });
   h += '</tbody></table>';
-  h += paginationBar('sales', pg, 'renderSalesTable()');
   c.innerHTML = h;
   attachContextMenu('sales-table'); // Right-click menu — Added 2026-05-08
 }
@@ -1143,7 +969,7 @@ function renderRM() {
   const c = document.getElementById('tab-rm');
   c.innerHTML = `
     <div class="filter-bar">
-      <input class="search" placeholder="Search patient..." oninput="debouncedRenderRM()">
+      <input class="search" placeholder="Search patient..." oninput="renderRMTable()">
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.durations,null,'All Durations')}</select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.health_partners,null,'All HP')}</select>
@@ -1163,11 +989,7 @@ function renderRMTable() {
   const sels = document.querySelectorAll('#tab-rm .filter-sel');
   const search = document.querySelector('#tab-rm .search')?.value||'';
   const planStatusFilter = sels[4]?.value || null;
-  // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  maybeResetPage('rm', [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,sels[3]?.value,planStatusFilter].join('|'));
-  // Sort by purchase date descending (newest first), same as Sales tab — Added 2026-05-12
-  const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
-  const filtered = filterPatients(sorted,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:planStatusFilter});
+  const filtered = filterPatients(patients,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:planStatusFilter});
 
   // KPI pills react ONLY to Plan Status filter, not search/condition/HP/WC — Changed 2026-05-12
   const pillScope = planStatusFilter
@@ -1180,15 +1002,12 @@ function renderRMTable() {
   if(kpiDone) kpiDone.textContent = `WC Done: ${wcd}`;
   if(kpiPending) kpiPending.textContent = `Pending: ${wcp}`;
 
-  // Pagination — Added 2026-05-14 IST
-  const pg = paginate(filtered, 'rm');
-
   let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Plan</th><th>Purchase Date</th><th>HP</th><th>WC Attempts</th><th>WC Done</th><th>Nutritionist</th><th>Psychologist</th><th>Physiotherapist</th><th>Remarks</th></tr></thead><tbody>';
-  pg.slice.forEach((p,i) => {
+  filtered.forEach((p,i) => {
     const atts = p.rm?.wc_attempts||[];
     let dots = atts.map(a=>'<span class="dot '+attemptDotClass(a.remarks)+'"></span>').join('');
     h += `<tr class="${p.id===selectedPatientId?'sel':''}" onclick="openRMPanel('${p.id}')">
-      <td>${pg.start+i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
+      <td>${i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
       <td>${condPill(p.seed.condition_type)}</td><td>${esc(p.seed.plan_duration)}</td><td class="dc">${esc(p.seed.plan_purchase_date)}</td>
       <td><span class="ct">${esc(p.rm?.health_partner)}</span></td>
       <td><div class="dots">${dots||'—'}</div></td>
@@ -1199,7 +1018,6 @@ function renderRMTable() {
       <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(p.rm?.final_remarks)}</td></tr>`;
   });
   h += '</tbody></table>';
-  h += paginationBar('rm', pg, 'renderRMTable()');
   c.innerHTML = h;
   attachContextMenu('rm-table'); // Right-click menu — Added 2026-05-08
 }
@@ -1502,7 +1320,7 @@ function renderCoachTab(mod) {
   c.innerHTML = `
     ${teamPanel}
     <div class="filter-bar">
-      <input class="search" placeholder="Search patient..." oninput="debouncedRenderCoach('${mod}')">
+      <input class="search" placeholder="Search patient..." oninput="renderCoachTable('${mod}')">
       <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(statList,null,'All Statuses')}</select>
       <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(coachList,null,'All Coaches')}</select>
       <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
@@ -1525,11 +1343,7 @@ function renderCoachTable(mod) {
   const sels = document.querySelectorAll('#tab-'+mod+' .filter-sel');
   const search = document.querySelector('#tab-'+mod+' .search')?.value||'';
   const planStatusFilter = sels[3]?.value || null;
-  // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  maybeResetPage(mod, [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,planStatusFilter].join('|'));
-  // Sort by purchase date descending (newest first) — Added 2026-05-14 IST
-  const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
-  const filtered = filterPatients(sorted,{search,status:sels[0]?.value?sels[0].value:null,section:sels[0]?.value?mod:null,
+  const filtered = filterPatients(patients,{search,status:sels[0]?.value?sels[0].value:null,section:sels[0]?.value?mod:null,
     coach:sels[1]?.value||null,condition:sels[2]?.value||null,planStatus:planStatusFilter});
   // Filter by coach for the right section
   const list = sels[1]?.value ? filtered.filter(p=>p[mod]?.coach===sels[1].value) : filtered;
@@ -1545,19 +1359,16 @@ function renderCoachTable(mod) {
   if(kpiA) kpiA.textContent = `Active assessment: ${active}`;
   if(kpiI) kpiI.textContent = `Inactive assessment: ${inactive}`;
 
-  // Pagination — Added 2026-05-14 IST
-  const pg = paginate(list, mod);
-
   const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
   const coachField = mod==='physio'?'coach':'coach';
 
   let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Duration</th><th>Coach</th><th>Status</th>';
   mCols.forEach(m=>h+='<th>M'+m+'</th>');
   h += '<th>Current Status</th></tr></thead><tbody>';
-  pg.slice.forEach((p,i) => {
+  list.forEach((p,i) => {
     const sec = p[mod]||{};
     h += `<tr class="${p.id===selectedPatientId?'sel':''}" onclick="openCoachPanel('${mod}','${p.id}')">
-      <td>${pg.start+i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
+      <td>${i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
       <td>${condPill(p.seed.condition_type)}</td><td>${esc(p.seed.plan_duration)}</td>
       <td><span class="ct">${esc(sec.coach)}</span></td>
       <td>${statusPill(sec.status)}</td>`;
@@ -1565,12 +1376,9 @@ function renderCoachTable(mod) {
     h += `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(sec.current_status)}</td></tr>`;
   });
   h += '</tbody></table>';
-  h += paginationBar(mod, pg, "renderCoachTable('"+mod+"')");
   c.innerHTML = h;
   attachContextMenu(mod+'-table'); // Right-click menu — Added 2026-05-08
 }
-
-// (No wrapper needed — paginationBar takes a full invocation string — Added 2026-05-14 IST)
 
 // Auto-calculate coaching status from assessment data — Added 2026-05-01
 // Returns suggested status string. Does NOT override manual "Inactive" selections.
@@ -1828,11 +1636,10 @@ function renderWeekly() {
   const c = document.getElementById('tab-weekly');
   c.innerHTML = `
     <div class="filter-bar">
-      <input class="search" placeholder="Search patient..." oninput="debouncedRenderWeekly()">
+      <input class="search" placeholder="Search patient..." oninput="renderWeeklyTable()">
       <select class="filter-sel" onchange="renderWeeklyTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
       <select class="filter-sel" onchange="renderWeeklyTable()">${optHtml(dropdowns.health_partners,null,'All HP')}</select>
       <select class="filter-sel" onchange="renderWeeklyTable()">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
-      <select class="filter-sel" onchange="renderWeeklyTable()">${optHtml(['Overdue','Due today','Due tomorrow','Due in 3+ days'],null,'All Follow-up Status')}</select>
     </div>
     <div class="main-area"><div class="table-area" id="wk-table"></div><div class="side-panel" id="sp-weekly"></div></div>`;
   renderWeeklyTable();
@@ -1842,44 +1649,21 @@ function renderWeeklyTable() {
   const c = document.getElementById('wk-table'); if(!c) return;
   const sels = document.querySelectorAll('#tab-weekly .filter-sel');
   const search = document.querySelector('#tab-weekly .search')?.value||'';
-  const followupFilter = sels[3]?.value || null;
-  // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  maybeResetPage('weekly', [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,followupFilter].join('|'));
-  // Sort by purchase date descending (newest first) — Added 2026-05-14 IST
-  const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
-  let filtered = filterPatients(sorted,{search,condition:sels[0]?.value,hp:sels[1]?.value,planStatus:sels[2]?.value||null});
+  const filtered = filterPatients(patients,{search,condition:sels[0]?.value,hp:sels[1]?.value,planStatus:sels[2]?.value||null});
 
-  // Apply Follow-up Status filter — Added 2026-05-12
-  if (followupFilter) {
-    filtered = filtered.filter(p => {
-      const r = nextFollowupDue(p);
-      if (r.kind !== 'due') return false;  // skip Plan Ended / Awaiting WC
-      if (followupFilter === 'Overdue') return r.daysOffset < 0;
-      if (followupFilter === 'Due today') return r.daysOffset === 0;
-      if (followupFilter === 'Due tomorrow') return r.daysOffset === 1;
-      if (followupFilter === 'Due in 3+ days') return r.daysOffset >= 2;
-      return true;
-    });
-  }
-
-  // Pagination — Added 2026-05-14 IST
-  const pg = paginate(filtered, 'weekly');
-
-  let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>HP</th><th>Entries</th><th>Last Date</th><th>Next Follow-up</th><th>Latest Remarks</th></tr></thead><tbody>';
-  pg.slice.forEach((p,i) => {
+  let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>HP</th><th>Entries</th><th>Last Date</th><th>Latest Remarks</th></tr></thead><tbody>';
+  filtered.forEach((p,i) => {
     const wk = p.weekly||{entries:[]};
     const entries = wk.entries||[];
     const last = entries[entries.length-1];
     h += `<tr class="${p.id===selectedPatientId?'sel':''}" onclick="openWeeklyPanel('${p.id}')">
-      <td>${pg.start+i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
+      <td>${i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
       <td>${condPill(p.seed.condition_type)}</td><td><span class="ct">${esc(p.rm?.health_partner)}</span></td>
       <td><span class="pill pill-purple">${entries.length} wks</span></td>
       <td class="dc">${esc(last?.date)}</td>
-      <td>${followupDueCell(p)}</td>
       <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">${esc(last?.remarks)}</td></tr>`;
   });
   h += '</tbody></table>';
-  h += paginationBar('weekly', pg, 'renderWeeklyTable()');
   c.innerHTML = h;
   attachContextMenu('wk-table'); // Right-click menu — Added 2026-05-08
 }
@@ -1941,7 +1725,7 @@ function renderCoaches() {
 
   c.innerHTML = `
     <div class="filter-bar">
-      <input class="search" placeholder="Search coach..." oninput="debouncedRenderCoaches()">
+      <input class="search" placeholder="Search coach..." oninput="renderCoachesTable()">
       <select class="filter-sel" onchange="renderCoachesTable()">${optHtml(['Nutritionist','Psychologist','Physiotherapist','HP / RM'],null,'All Types')}</select>
       <select class="filter-sel" onchange="renderCoachesTable()">${optHtml(['Active','Inactive'],null,'All Status')}</select>
       ${getRole()==='admin'?'<button class="btn btn-primary" onclick="showAddCoach()">+ Add new coach</button><button class="btn btn-ghost" onclick="showManageUsers()" style="margin-left:4px">Manage Users</button>':''}

@@ -27,10 +27,6 @@ ALLOW_DROP=yes python scripts/migrate.py inside_sales.csv ops_tracker.xlsx
 # Supabase — use DIRECT URL (port 5432), not pooler
 export DATABASE_URL="postgresql://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres"
 ALLOW_DROP=yes python scripts/migrate.py inside_sales.csv ops_tracker.xlsx
-
-#final migration script
-
-$env:DATABASE_URL="postgresql://postgres.gatmlcmknckaiqdabkae:Sincemybirth%4094@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"; $env:ALLOW_DROP="yes"; python scripts\migrate.py "C:\Users\Pranay Mohadikar\OneDrive - DHSPL\Desktop\CRM Tool Niva Tracker\files\Niva_Bupa_Tracker_Niva_-_Inside_Sales_.csv" "C:\Users\Pranay Mohadikar\OneDrive - DHSPL\Desktop\CRM Tool Niva Tracker\files\Niva_Bupa_Ops_Tracker__5_.xlsx" 
 ```
 
 ## Schema upgrades (after adding columns/tables to models.py)

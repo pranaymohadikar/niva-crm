@@ -9,6 +9,5 @@
   ],
   "routes": [
     { "src": "/(.*)", "dest": "api/server.py" }
-  ],
-  "regions": ["hnd1"]
+  ]
 }

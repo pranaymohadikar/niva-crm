@@ -9,122 +9,35 @@ Changes 2026-05-12:
   - Removed CORS middleware (frontend is same-origin)
   - Removed shutil/threading imports (no longer needed)
   - Robustified crm.html path resolution
-  - Added structured logging (startup banner, request log, error traces)
 """
 
 import hashlib
-import logging
-import os
-import time
-import traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, Any
 
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
-from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session, selectinload
+try:
 
-from db import engine, SessionLocal, get_db, DATABASE_URL
-from models import (Base, User, Staff, Patient, RMData, WCAttempt, CoachingData,
+    from .db import engine, SessionLocal, get_db
+    from .models import (Base, User, Staff, Patient, RMData, WCAttempt, CoachingData,
                     MonthlyCycle, MonthlyAttempt, FollowupAttempt,
-                    WeeklyEntry, Dropdown, AuditLog, Notification, Task, Comment,
-                    now_ist)  # now_ist for follow-up scanner — Re-added 2026-05-14 IST
-import re  # For @mention parsing — Added 2026-05-05
+                    WeeklyEntry, Dropdown, AuditLog, Notification, Task, Comment)
+except ImportError:
+    from db import engine, SessionLocal, get_db
+    from models import (Base, User, Staff, Patient, RMData, WCAttempt, CoachingData,
+                    MonthlyCycle, MonthlyAttempt, FollowupAttempt,
+                    WeeklyEntry, Dropdown, AuditLog, Notification, Task, Comment)
+
+import re 
+
+ # For @mention parsing — Added 2026-05-05
 
 BASE_DIR = Path(__file__).parent
-
-# ─── LOGGING SETUP — Added 2026-05-12 ───
-# Always-on INFO logging to stderr. Vercel captures stderr into Function Logs.
-# Local dev sees the same output in the terminal running uvicorn.
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-log = logging.getLogger("niva")
-# Quiet down noisy libraries
-logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-
 app = FastAPI(title="Niva Bupa CRM")
-
-
-# ─── STARTUP BANNER — Added 2026-05-12 ───
-# Logs DB target + connectivity at module load time. Runs on every cold start
-# in serverless, and once at boot locally. Tells you instantly whether the
-# server is talking to the DB you think it is.
-def _mask_url(url: str) -> str:
-    """Mask password in connection URL for safe logging."""
-    return re.sub(r'://([^:]+):[^@]+@', r'://\1:***@', url)
-
-def _log_startup():
-    is_sqlite = DATABASE_URL.startswith("sqlite")
-    log.info("=" * 60)
-    log.info("Niva Bupa CRM — booting")
-    log.info(f"  DATABASE_URL: {_mask_url(DATABASE_URL)}")
-    log.info(f"  Dialect:      {'SQLite' if is_sqlite else 'Postgres'}")
-    log.info(f"  CWD:          {os.getcwd()}")
-    log.info(f"  BASE_DIR:     {BASE_DIR}")
-    if is_sqlite:
-        # Resolve the actual SQLite file path
-        db_file = DATABASE_URL.replace("sqlite:///", "")
-        abs_path = os.path.abspath(db_file)
-        exists = os.path.exists(abs_path)
-        log.info(f"  SQLite file:  {abs_path} (exists={exists})")
-        if exists:
-            size_kb = os.path.getsize(abs_path) // 1024
-            log.info(f"  File size:    {size_kb} KB")
-    # Probe connectivity
-    try:
-        with engine.connect() as conn:
-            conn.execute(sql_text("SELECT 1"))
-        log.info("  Connectivity: OK")
-        # Probe schema
-        try:
-            with SessionLocal() as db:
-                user_count = db.query(User).count()
-                patient_count = db.query(Patient).count()
-                log.info(f"  Users:        {user_count}")
-                log.info(f"  Patients:     {patient_count}")
-        except Exception as e:
-            log.warning(f"  Schema probe failed: {type(e).__name__}: {e}")
-    except Exception as e:
-        log.error(f"  Connectivity: FAILED — {type(e).__name__}: {e}")
-    log.info("=" * 60)
-
-_log_startup()
-
-
-# ─── REQUEST LOGGING + EXCEPTION HANDLER — Added 2026-05-12 ───
-# Logs every API call as: METHOD /path → status (duration_ms)
-# On unhandled exceptions, logs the full traceback before returning 500.
-
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start = time.perf_counter()
-    method = request.method
-    path = request.url.path
-    try:
-        response = await call_next(request)
-        duration_ms = int((time.perf_counter() - start) * 1000)
-        # Only log API calls and root; skip docs/openapi noise
-        if path.startswith("/api/") or path == "/":
-            log.info(f"{method} {path} → {response.status_code} ({duration_ms}ms)")
-        return response
-    except Exception as e:
-        duration_ms = int((time.perf_counter() - start) * 1000)
-        log.error(f"{method} {path} → CRASHED ({duration_ms}ms)")
-        log.error(f"  {type(e).__name__}: {e}")
-        log.error("Traceback:\n" + traceback.format_exc())
-        return JSONResponse(
-            {"error": "Internal server error", "type": type(e).__name__, "detail": str(e)},
-            status_code=500,
-        )
 
 # ─── REQUEST MODELS ───
 
@@ -240,155 +153,6 @@ def find_head_coach_user(db: Session, section: str):
         user = db.query(User).filter(User.active == True, User.name == name).first()
         if user: return user
     return None
-
-
-# ─── FOLLOW-UP NOTIFICATIONS — Re-added 2026-05-14 IST ───
-# Sends one "overdue" or "due today" notification per patient per day to the
-# HP-user (User with staff_id = patient's health_partner_id).
-#
-# Look-back window: a patient is admitted to the notification stream only if
-# their first overdue day falls within the last OVERDUE_LOOKBACK_DAYS days.
-# This prevents day-one floods when enabling on real data with months of history.
-# Once admitted (notification rows exist), they keep getting daily reminders
-# until acted on (a new WeeklyEntry is logged) — old patients in the stream
-# are NOT cut off at the window boundary.
-#
-# Yesterday's notifications auto-mark-read when today's fires, so the unread
-# count reflects "today's work", not accumulated history.
-
-OVERDUE_LOOKBACK_DAYS = 15  # Re-added 2026-05-14 IST
-
-def _parse_iso_date(s):
-    """Parse YYYY-MM-DD into a date. Returns None on failure — Re-added 2026-05-14 IST"""
-    if not s: return None
-    try:
-        return datetime.strptime(str(s)[:10], "%Y-%m-%d").date()
-    except (ValueError, TypeError):
-        return None
-
-def compute_followup_status(patient: Patient, today_date):
-    """Return 'overdue' / 'due_today' / None for a patient — Re-added 2026-05-14 IST"""
-    exp = _parse_iso_date(patient.expiry_date)
-    if exp and exp < today_date: return None  # plan expired
-    rm = patient.rm_data
-    if not rm or rm.welcome_call_done != "Yes": return None  # WC not done
-    last_date = None
-    for e in (patient.weekly_entries or []):
-        d = _parse_iso_date(e.date)
-        if d and (last_date is None or d > last_date): last_date = d
-    anchor = last_date or _parse_iso_date(rm.welcome_call_completion_date)
-    if not anchor: return None
-    due = anchor + timedelta(days=7)
-    if due < today_date: return "overdue"
-    if due == today_date: return "due_today"
-    return None
-
-def find_rm_user_for_patient(patient: Patient, db: Session):
-    """User assigned to this patient via HP staff_id chain — Re-added 2026-05-14 IST"""
-    rm = patient.rm_data
-    if not rm or not rm.health_partner_id: return None
-    return db.query(User).filter(User.active == True,
-                                  User.staff_id == rm.health_partner_id).first()
-
-def scan_and_create_followup_notifications(user_id: int, db: Session):
-    """Optimized scanner with batched queries — Re-added 2026-05-14 IST.
-
-    Look-back window: a patient is added to the notification stream only if
-    their first overdue day is within OVERDUE_LOOKBACK_DAYS of today, OR they
-    already received a follow-up notification at some point (already in stream).
-    Once in the stream, daily reminders continue until acted on.
-    """
-    user = db.query(User).filter(User.id == user_id, User.active == True).first()
-    if not user or not user.staff_id: return  # No staff link → nothing to scan
-
-    today_ist = now_ist().date()
-    yesterday_ist = today_ist - timedelta(days=1)
-    today_start = datetime(today_ist.year, today_ist.month, today_ist.day)
-    yest_start = datetime(yesterday_ist.year, yesterday_ist.month, yesterday_ist.day)
-
-    # Eager-load weekly_entries to avoid N+1 — Re-added 2026-05-14 IST
-    patients = (db.query(Patient)
-                .join(RMData, RMData.patient_id == Patient.id)
-                .filter(RMData.health_partner_id == user.staff_id)
-                .options(selectinload(Patient.weekly_entries))
-                .all())
-    if not patients: return
-
-    # Batch-fetch all of today's existing follow-up notifications for this user
-    todays_existing = (db.query(Notification)
-        .filter(Notification.recipient_user_id == user_id,
-                Notification.section == "followup",
-                Notification.created_at >= today_start)
-        .all())
-    todays_msgs_by_patient = {}
-    for n in todays_existing:
-        todays_msgs_by_patient.setdefault(n.patient_id, set()).add(n.message)
-
-    # Batch-fetch the set of patients who have EVER received a follow-up
-    # notification (i.e. are already in the notification stream) — Added 2026-05-14 IST
-    in_stream_patient_ids = {pid for (pid,) in db.query(Notification.patient_id)
-        .filter(Notification.recipient_user_id == user_id,
-                Notification.section == "followup").distinct().all()}
-
-    patients_with_new_notif = set()
-    new_notifications = []
-
-    for p in patients:
-        status = compute_followup_status(p, today_ist)
-        if status is None: continue
-
-        # Compute days_late (0 for due_today, positive for overdue)
-        if status == "overdue":
-            last_date = None
-            for e in (p.weekly_entries or []):
-                d = _parse_iso_date(e.date)
-                if d and (last_date is None or d > last_date): last_date = d
-            anchor = last_date or _parse_iso_date(p.rm_data.welcome_call_completion_date)
-            days_late = (today_ist - (anchor + timedelta(days=7))).days
-            message = f"Follow-up overdue for {p.patient_name} ({days_late} day{'s' if days_late != 1 else ''} late)"
-        else:
-            days_late = 0
-            message = f"Follow-up due today for {p.patient_name}"
-
-        # Look-back window: only ADMIT new patients to the stream if their
-        # overdue is within the last OVERDUE_LOOKBACK_DAYS days. Patients
-        # already in the stream are not cut off — Added 2026-05-14 IST
-        if p.id not in in_stream_patient_ids and days_late > OVERDUE_LOOKBACK_DAYS:
-            continue
-
-        # Dedupe via the pre-fetched map — no DB query
-        if message in todays_msgs_by_patient.get(p.id, set()): continue
-
-        patients_with_new_notif.add(p.id)
-        new_notifications.append(Notification(
-            recipient_user_id=user_id,
-            recipient_name=user.name,
-            sender_name="System",
-            sender_role="system",
-            patient_id=p.id,
-            patient_name=p.patient_name,
-            message=message,
-            section="followup",
-            read=False,
-        ))
-
-    if not new_notifications: return
-
-    # Auto-mark yesterday's notifications as read — single batched UPDATE
-    (db.query(Notification)
-        .filter(Notification.recipient_user_id == user_id,
-                Notification.patient_id.in_(patients_with_new_notif),
-                Notification.section == "followup",
-                Notification.read == False,
-                Notification.created_at >= yest_start,
-                Notification.created_at < today_start)
-        .update({"read": True}, synchronize_session=False))
-
-    # Bulk-insert all new notifications — single INSERT batch
-    db.add_all(new_notifications)
-    db.commit()
-# ─── END FOLLOW-UP NOTIFICATIONS — Re-added 2026-05-14 IST ───
-
 
 # @mention parser — finds @Name in text and creates notifications — Added 2026-05-05
 def parse_and_notify(db: Session, text: str, sender_name: str, sender_role: str,
@@ -569,20 +333,8 @@ async def serve_frontend():
 @app.post("/api/login")
 async def login(req: LoginReq, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == req.username, User.active == True).first()
-    # Diagnostic logging — never log passwords — Added 2026-05-12
-    if not user:
-        # Check if username exists but is inactive, to give a clearer log
-        any_user = db.query(User).filter(User.username == req.username).first()
-        if any_user:
-            log.warning(f"Login failed for '{req.username}': user exists but is inactive")
-        else:
-            total = db.query(User).count()
-            log.warning(f"Login failed for '{req.username}': no such user (total users in DB: {total})")
+    if not user or not check_pw(req.password, user.password_hash):
         raise HTTPException(401, "Invalid credentials")
-    if not check_pw(req.password, user.password_hash):
-        log.warning(f"Login failed for '{req.username}': password mismatch")
-        raise HTTPException(401, "Invalid credentials")
-    log.info(f"Login OK: {req.username} (role={user.role})")
     return {"status": "ok", "user": {"id": user.id, "name": user.name, "role": user.role, "username": user.username, "staff_id": user.staff_id}}  # Added staff_id — Changed 2026-05-05
 
 # Role to staff type mapping for auto-match — Added 2026-05-05
@@ -690,13 +442,6 @@ async def toggle_staff(staff_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/notifications/{user_id}")
 async def get_notifications(user_id: int, db: Session = Depends(get_db)):
-    # Lazily compute follow-up overdue / due-today notifications — Re-added 2026-05-14 IST
-    # Idempotent within the day. 15-day look-back for new admissions.
-    # Wrapped so a scanner failure never breaks the bell.
-    try:
-        scan_and_create_followup_notifications(user_id, db)
-    except Exception as e:
-        log.warning(f"Follow-up scan failed for user {user_id}: {type(e).__name__}: {e}")
     notifs = db.query(Notification).filter(Notification.recipient_user_id == user_id)\
         .order_by(Notification.id.desc()).limit(50).all()
     return [{"id":n.id, "sender":n.sender_name, "sender_role":n.sender_role,
