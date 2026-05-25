@@ -334,14 +334,15 @@ let allUsers = []; // All active users for @mention autocomplete — Added 2026-
 let ctxPatientId = null; // Patient ID for context menu actions — Added 2026-05-08
 
 // Tab visibility — all roles see all tabs, edit access is controlled separately — Changed 2026-05-01
+// Coaches tab is admin-only — removed from all other roles — Changed 2026-05-14 IST
 const ROLE_TABS = {
-  sales:    ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
-  rm:       ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
-  diet:     ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
-  wellness: ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
-  physio:   ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
-  cs:       ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
-  visit:    ['sales','rm','weekly','diet','wellness','physio','coaches','dashboard'],  // No tasks tab — Added 2026-05-06
+  sales:    ['sales','rm','weekly','diet','wellness','physio','tasks','dashboard'],
+  rm:       ['sales','rm','weekly','diet','wellness','physio','tasks','dashboard'],
+  diet:     ['sales','rm','weekly','diet','wellness','physio','tasks','dashboard'],
+  wellness: ['sales','rm','weekly','diet','wellness','physio','tasks','dashboard'],
+  physio:   ['sales','rm','weekly','diet','wellness','physio','tasks','dashboard'],
+  cs:       ['sales','rm','weekly','diet','wellness','physio','tasks','dashboard'],
+  visit:    ['sales','rm','weekly','diet','wellness','physio','dashboard'],  // No tasks tab — Added 2026-05-06
   admin:    ['sales','rm','weekly','diet','wellness','physio','coaches','tasks','dashboard'],
 };
 
@@ -655,6 +656,10 @@ function buildTabs() {
 }
 
 function switchTab(name) {
+  // Enforce role-based tab access — block direct navigation to disallowed tabs
+  // (e.g. coaches is admin-only) — Changed 2026-05-14 IST
+  const allowed = ROLE_TABS[getRole()] || ROLE_TABS.admin;
+  if (!allowed.includes(name)) name = allowed[0];
   currentTab = name;
   selectedPatientId = null;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
@@ -946,6 +951,17 @@ function renderSales() {
 async function uploadSalesCSV(input) {
   const f = input.files[0];
   if (!f) return;
+  // Pre-check file size — Vercel rejects bodies over ~4.5MB before our code runs.
+  // A bloated CSV (e.g. thousands of empty Excel rows) is the usual cause. — Changed 2026-05-14 IST
+  const MAX_MB = 4;
+  if (f.size > MAX_MB * 1024 * 1024) {
+    alert(`File is too large (${(f.size/1024/1024).toFixed(1)} MB).\n\n`
+      + `This usually means the CSV has many empty rows saved by Excel.\n`
+      + `Fix: open the CSV, delete the blank rows below your data, save, and retry.\n`
+      + `(Limit is about ${MAX_MB} MB.)`);
+    input.value = '';
+    return;
+  }
   if (!confirm(`Upload "${f.name}"?\n\nNew patients (matched by name + phone + purchase date) will be added. Existing patients will be skipped and never modified.`)) {
     input.value = '';
     return;
@@ -957,7 +973,24 @@ async function uploadSalesCSV(input) {
     const res = await fetch(`${API}/api/sync/sales?user=${encodeURIComponent(user)}&role=${encodeURIComponent(role)}`, {
       method: 'POST', body: fd
     });
-    const data = await res.json();
+    // Read as text first, then try to parse — so non-JSON infra errors
+    // (e.g. "Request Entity Too Large", timeouts) give a clear message
+    // instead of "Unexpected token" — Changed 2026-05-14 IST
+    const rawText = await res.text();
+    let data;
+    try { data = JSON.parse(rawText); }
+    catch (parseErr) {
+      // Non-JSON response — surface the real problem
+      let hint = rawText.slice(0, 200);
+      if (/too large|entity too large|413/i.test(rawText) || res.status === 413) {
+        hint = 'The file is too large for the server to accept. Remove empty rows from the CSV and retry.';
+      } else if (res.status === 504 || /timeout|timed out/i.test(rawText)) {
+        hint = 'The upload timed out. The file may be too big or have too many rows.';
+      }
+      alert('Upload failed (server did not return a valid response):\n\n' + hint);
+      input.value = '';
+      return;
+    }
     if (!res.ok) { alert('Upload failed: ' + (data.detail || res.status)); input.value=''; return; }
     let msg = `Sales CSV processed:\n\n`
       + `✓ Added: ${data.added} new patient(s)\n`
@@ -2276,9 +2309,11 @@ function renderDashboard() {
   const wcd = patients.filter(p=>p.rm?.welcome_call_done==='Yes').length;
 
   // Module status counting helper — Changed 2026-05-05
+  // Counts ONLY patients with an active (non-expired) plan — Changed 2026-05-14 IST
   function modStats(mod) {
     let active=0, inactive=0, pending=0;
     patients.forEach(p => {
+      if(planStatus(p) !== 'Active') return;  // active-plan only — Changed 2026-05-14 IST
       const s = (p[mod]?.status||'').toLowerCase();
       if(s.includes('inactive') || s==='plan ended') inactive++;
       else if(s.includes('completed')) active++;
@@ -2291,14 +2326,17 @@ function renderDashboard() {
   const phys = modStats('physio');
 
   // Overall active = WC done and not inactive in ALL modules
-  const overallActive = patients.filter(p => {
+  // Counted ONLY among patients with an ACTIVE (non-expired) plan — Changed 2026-05-14 IST
+  // Per-module mini-bars above still count all patients (unchanged).
+  const activePlanPatients = patients.filter(p => planStatus(p) === 'Active');
+  const overallActive = activePlanPatients.filter(p => {
     if(p.rm?.welcome_call_done !== 'Yes') return false;
     const ds = (p.diet?.status||'').toLowerCase();
     const ws = (p.wellness?.status||'').toLowerCase();
     const ps = (p.physio?.status||'').toLowerCase();
     return !ds.includes('inactive') && !ws.includes('inactive') && !ps.includes('inactive');
   }).length;
-  const overallInactive = patients.filter(p => {
+  const overallInactive = activePlanPatients.filter(p => {
     const ds = (p.diet?.status||'').toLowerCase();
     const ws = (p.wellness?.status||'').toLowerCase();
     const ps = (p.physio?.status||'').toLowerCase();
@@ -2372,8 +2410,8 @@ function renderDashboard() {
     <div class="dash-grid">
       <div class="dash-card"><div class="label">Total patients</div><div class="val">${total}</div></div>
       <div class="dash-card"><div class="label">WC completion rate</div><div class="val" style="color:var(--green)">${total?Math.round(wcd/total*100):0}%</div><div class="sub">${wcd} / ${total}</div></div>
-      <div class="dash-card"><div class="label">Active assessment</div><div class="val" style="color:var(--green)">${overallActive}</div><div class="sub">Currently engaged in coaching</div></div>
-      <div class="dash-card"><div class="label">Inactive assessment</div><div class="val" style="color:var(--red)">${overallInactive}</div><div class="sub">Inactive in at least one module</div></div>
+      <div class="dash-card"><div class="label">Active assessment</div><div class="val" style="color:var(--green)">${overallActive}</div><div class="sub">of ${activePlanPatients.length} active plans</div></div>
+      <div class="dash-card"><div class="label">Inactive assessment</div><div class="val" style="color:var(--red)">${overallInactive}</div><div class="sub">of ${activePlanPatients.length} active plans</div></div>
     </div>
     <div class="dash-row">
       <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Condition distribution</div>${condBars}</div>
