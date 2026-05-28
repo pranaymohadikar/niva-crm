@@ -1332,7 +1332,7 @@ async def export_excel(db: Session = Depends(get_db)):
     diet_cols = ["Patient Name","Registered Number","Condition Type","Plan Purchase Date",
                  "Duration","Diet Coach","Diet Status","Current Diet Status",
                  "Appointment, coach name & Special Remarks For Diet Coach","Head Coach Comment"]
-    for m in range(1, 7):
+    for m in range(1, 13):  # M1-M12 — Changed 2026-05-14 IST
         diet_cols.extend([f"Month {m} Attempt 1 Date",f"Month {m} Attempt 1 Time",f"Month {m} Attempt 1 Disposition",
                           f"Month {m} Attempt 2 Date",f"Month {m} Attempt 2 Time",f"Month {m} Attempt 2 Disposition",
                           f"Month {m} Attempt 3 Date",f"Month {m} Attempt 3 Time",f"Month {m} Attempt 3 Disposition",
@@ -1347,7 +1347,7 @@ async def export_excel(db: Session = Depends(get_db)):
                p.plan_duration, cd.coach if cd else None, cd.status if cd else None,
                cd.current_status if cd else None, cd.appointment_remarks if cd else None,
                cd.head_coach_comment if cd else None]
-        for m in range(1, 7):
+        for m in range(1, 13):  # M1-M12 — Changed 2026-05-14 IST
             mc = get_month(cd, m)
             row.extend(month_attempts(mc))
             row.extend([mc.assessment_done if mc else None, mc.assessment_date if mc else None,
@@ -1362,7 +1362,7 @@ async def export_excel(db: Session = Depends(get_db)):
     well_cols = ["Patient Name","Registered Number","Condition Type","Plan Purchase Date",
                  "Duration","Wellness Coach Name","Wellness Status","Current Wellness Status",
                  "Appointment, coach name & Special Remarks For Wellness Coach"]
-    for m in range(1, 7):
+    for m in range(1, 13):  # M1-M12 — Changed 2026-05-14 IST
         well_cols.extend([f"Month {m} Attempt 1 Date",f"Month {m} Attempt 1 Time",f"Month {m} Attempt 1 Disposition",
                           f"Month {m} Attempt 2 Date",f"Month {m} Attempt 2 Time",f"Month {m} Attempt 2 Disposition",
                           f"Month {m} Attempt 3 Date",f"Month {m} Attempt 3 Time",f"Month {m} Attempt 3 Disposition",
@@ -1376,7 +1376,7 @@ async def export_excel(db: Session = Depends(get_db)):
                p.plan_duration, cw.coach if cw else None, cw.status if cw else None,
                cw.current_status if cw else None, cw.appointment_remarks if cw else None]
         cbt1 = None; cbt2 = None; comments = None
-        for m in range(1, 7):
+        for m in range(1, 13):  # M1-M12 — Changed 2026-05-14 IST
             mc = get_month(cw, m)
             row.extend(month_attempts(mc))
             row.extend([mc.assessment_done if mc else None, mc.assessment_date if mc else None])
@@ -1392,7 +1392,7 @@ async def export_excel(db: Session = Depends(get_db)):
     phys_cols = ["Patient Name","Registered Number","Condition Type","Plan Purchase Date",
                  "Duration","Physio Coach Name","Physio Status","Current Physio Status",
                  "Appointment, coach name & Special Remarks For Physio Coach"]
-    for m in [1, 4]:
+    for m in [1, 4, 7, 10]:  # Quarterly M1,4,7,10 — Changed 2026-05-14 IST
         phys_cols.extend([f"Month {m} Attempt 1 Date",f"Month {m} Attempt 1 Time",f"Month {m} Attempt 1 Disposition",
                           f"Month {m} Attempt 2 Date",f"Month {m} Attempt 2 Time",f"Month {m} Attempt 2 Disposition",
                           f"Month {m} Attempt 3 Date",f"Month {m} Attempt 3 Time",f"Month {m} Attempt 3 Disposition",
@@ -1410,7 +1410,7 @@ async def export_excel(db: Session = Depends(get_db)):
         row = [p.patient_name, p.contact_number, p.condition_type, p.plan_purchase_date,
                p.plan_duration, cp.coach if cp else None, cp.status if cp else None,
                cp.current_status if cp else None, cp.appointment_remarks if cp else None]
-        for m in [1, 4]:
+        for m in [1, 4, 7, 10]:  # Quarterly M1,4,7,10 — Changed 2026-05-14 IST
             mc = get_month(cp, m)
             row.extend(month_attempts(mc))
             row.extend([mc.assessment_done if mc else None, mc.assessment_date if mc else None,
