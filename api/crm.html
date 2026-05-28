@@ -113,6 +113,8 @@ table.dt tr.sel td{background:#DBEAFE;border-bottom-color:#BFDBFE}
 .mt-btn.active{background:var(--acc);color:#fff}
 .mt-btn.done{background:var(--green-bg);color:var(--green-tx)}
 .mt-btn.inactive{background:var(--red-bg);color:var(--red-tx)}
+.mt-btn.locked{background:var(--bg2);color:var(--tx3);opacity:0.4;cursor:not-allowed}
+.mt-btn:disabled{cursor:not-allowed}
 .cyc{padding:12px;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:10px}
 .cyc h5{font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px}
 .tab-content{display:none}.tab-content.active{display:block}
@@ -723,6 +725,41 @@ function planStatusPill(p) {
   if(s==='Active') return '<span class="pill pill-green">Active</span>';
   if(s==='Expired') return '<span class="pill pill-red">Expired</span>';
   return '<span class="pill pill-gray">Unknown</span>';
+}
+// Month columns per module — constant for every patient — Added 2026-05-14 IST
+// Nutritionist/Psychologist: M1-M12. Physiotherapist: quarterly (M1, M4, M7, M10).
+function monthColsFor(mod) {
+  return mod === 'physio' ? [1,4,7,10] : [1,2,3,4,5,6,7,8,9,10,11,12];
+}
+// Sequential month gating — Added 2026-05-14 IST
+// A month "has data" if the coach touched it in any way (attempts logged,
+// assessment answered Yes/No, or any field filled) — so existing entries
+// are never trapped.
+function monthHasData(months, m) {
+  const me = (months||[]).find(x=>x.month===m);
+  if(!me) return false;
+  if((me.attempts||[]).length > 0) return true;
+  if(me.assessment_done) return true;           // Yes or No
+  if(me.assessment_date) return true;
+  if(me.plan_assigned || me.plan_date || me.plan_comments) return true;       // diet
+  if(me.cbt_tools || me.comments) return true;                                // wellness
+  if(me.exercise_plan_assigned || me.exercise_plan_date || me.exercise_plan_comments) return true; // physio
+  if(me.followup_done || me.followup_date || (me.followup_attempts||[]).length>0) return true;      // physio
+  return false;
+}
+// A month is UNLOCKED if: it's the first in the module sequence, OR the
+// previous month in the sequence has been ANSWERED (assessment_done set to
+// Yes OR No), OR it already has data. Otherwise it's locked.
+function monthUnlocked(mod, months, m) {
+  const seq = monthColsFor(mod);
+  const idx = seq.indexOf(m);
+  if(idx <= 0) return true;                      // first month always open
+  if(monthHasData(months, m)) return true;       // never trap existing data
+  const prev = seq[idx-1];
+  const prevMe = (months||[]).find(x=>x.month===prev);
+  const prevAnswered = prevMe && prevMe.assessment_done &&
+    ['yes','no'].includes((prevMe.assessment_done||'').toLowerCase());
+  return !!prevAnswered;
 }
 function esc(s) { if(s==null) return '—'; const d=document.createElement('div'); d.textContent=String(s); return d.innerHTML; }
 
@@ -1419,7 +1456,7 @@ function isHeadCoach(mod) {
 function renderTeamPerformance(mod) {
   const modLabel = {diet:'Nutritionist',wellness:'Psychologist',physio:'Physiotherapist'}[mod];
   const coachList = dropdowns[mod+'_coaches']||[];
-  const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
+  const mCols = monthColsFor(mod);  // Changed 2026-05-14 IST: M1-M12 / physio quarterly
 
   // Build per-coach stats — Added 2026-05-06, Changed 2026-05-06: added per-month breakdown
   const coachStats = coachList.map(name => {
@@ -1527,7 +1564,7 @@ function renderCoachTab(mod) {
   const coachList = dropdowns[mod+'_coaches']||[];
   const statList = dropdowns.statuses||[];
   const maxM = mod==='physio'?4:6;
-  const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
+  const mCols = monthColsFor(mod);  // Changed 2026-05-14 IST: M1-M12 / physio quarterly
 
   // Head coach team performance panel — Added 2026-05-06
   const teamPanel = (isHeadCoach(mod) || getRole()==='admin') ? renderTeamPerformance(mod) : '';
@@ -1581,7 +1618,7 @@ function renderCoachTable(mod) {
   // Pagination — Added 2026-05-14 IST
   const pg = paginate(list, mod);
 
-  const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
+  const mCols = monthColsFor(mod);  // Changed 2026-05-14 IST: M1-M12 / physio quarterly
   const coachField = mod==='physio'?'coach':'coach';
 
   let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Duration</th><th>Coach</th><th>Status</th>';
@@ -1611,7 +1648,7 @@ function calcCoachStatus(mod, patient) {
   if(patient.rm?.welcome_call_done !== 'Yes') return 'Welcome Call Pending';
   const sec = patient[mod]||{};
   const months = sec.months||[];
-  const mCols = mod==='physio' ? [1,4] : [1,2,3,4,5,6];
+  const mCols = monthColsFor(mod);  // Changed 2026-05-14 IST: M1-M12 / physio quarterly
 
   // No monthly data and no coach → WC Completed
   if(months.length === 0 && !sec.coach) return 'Welcome Call Completed';
@@ -1677,15 +1714,20 @@ function openCoachPanel(mod, id) {
   const sp = document.getElementById('sp-'+mod);
   sp.className = 'side-panel open';
   const coachList = dropdowns[mod+'_coaches']||[];
-  const mCols = mod==='physio'?[1,4]:[1,2,3,4,5,6];
+  const mCols = monthColsFor(mod);  // Changed 2026-05-14 IST: M1-M12 / physio quarterly
   const months = sec.months||[];
-  const activeM = mCols.find(m=>monthStatus(months,m)!=='pill-green') || mCols[0];
+  // Active month = first UNLOCKED month that isn't done yet — Changed 2026-05-14 IST
+  const activeM = mCols.find(m=>monthUnlocked(mod,months,m) && monthStatus(months,m)!=='pill-green')
+                  || mCols.find(m=>monthUnlocked(mod,months,m)) || mCols[0];
   const ed = canEdit(mod); // Only matching coach role + admin — Added 2026-05-01
 
   let mtHtml = mCols.map(m=>{
+    const unlocked = monthUnlocked(mod, months, m);  // Sequential gating — Added 2026-05-14 IST
     const s = monthStatus(months,m);
-    const cls = s==='pill-green'?'done':s==='pill-red'?'inactive':m===activeM?'active':'';
-    return `<button class="mt-btn ${cls}" onclick="showMonth('${mod}','${id}',${m})">${mod==='physio'?'M'+m:'M'+m}</button>`;
+    const cls = !unlocked ? 'locked' : (s==='pill-green'?'done':s==='pill-red'?'inactive':m===activeM?'active':'');
+    // Locked months are greyed and unclickable — Added 2026-05-14 IST
+    const click = unlocked ? `onclick="showMonth('${mod}','${id}',${m})"` : 'disabled title="Complete the previous month first"';
+    return `<button class="mt-btn ${cls}" ${click}>M${m}</button>`;
   }).join('');
 
   sp.innerHTML = `
@@ -1716,6 +1758,11 @@ function openCoachPanel(mod, id) {
 function showMonth(mod, id, m) {
   const p = pat(id); if(!p) return;
   const sec = p[mod]||{};
+  // Sequential gating: ignore attempts to open a locked month — Added 2026-05-14 IST
+  if(!monthUnlocked(mod, sec.months||[], m)) {
+    toast('Complete the previous month first', false);
+    return;
+  }
   const me = (sec.months||[]).find(x=>x.month===m) || {month:m,attempts:[]};
   window._activeMonth = m;
   const ed = canEdit(mod);
@@ -2493,7 +2540,7 @@ function render360View(p) {
   function modCard(mod, label) {
     const sec = p[mod] || {};
     const months = sec.months || [];
-    const mCols = mod === 'physio' ? [1,4] : [1,2,3,4,5,6];
+    const mCols = monthColsFor(mod);  // Changed 2026-05-14 IST: M1-M12 / physio quarterly
     const statusCls = (sec.status||'').toLowerCase().includes('inactive') ? 'pill-red' :
                       (sec.status||'').toLowerCase().includes('completed') ? 'pill-green' :
                       (sec.status||'').toLowerCase().includes('pending') ? 'pill-amber' : 'pill-gray';
