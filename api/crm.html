@@ -1653,45 +1653,38 @@ function calcCoachStatus(mod, patient) {
   // No monthly data and no coach → WC Completed
   if(months.length === 0 && !sec.coach) return 'Welcome Call Completed';
 
+  // Latest-activity-wins rule — Changed 2026-05-14 IST:
+  // Walk through every month in sequence. Find the LATEST month with any
+  // activity (attempt or assessment). Status reflects that month's current
+  // state. A "No" in an earlier month is preserved in the timeline (red pill)
+  // but the status moves forward when newer activity exists — supporting the
+  // "patient returned in a later month" workflow.
+  let latestActivityMonth = 0;
+  let latestActivityState = null;  // 'yes' | 'no' | 'pending' (attempts only)
   let lastCompleted = 0;
   for(const m of mCols) {
     const me = months.find(x=>x.month===m);
-    if(!me) break;
+    if(!me) continue;  // no record for this month, look further
     const ad = (me.assessment_done||'').toLowerCase();
-    if(ad === 'yes') { lastCompleted = m; }
-    else { break; }
-  }
-
-  const completedIdx = mCols.indexOf(lastCompleted);
-
-  // All months completed
-  if(lastCompleted > 0 && completedIdx === mCols.length - 1) {
-    return 'Month ' + lastCompleted + ' Assessment Completed';
-  }
-
-  // Some months completed — check if next month has any activity — Changed 2026-05-06
-  if(lastCompleted > 0) {
-    const nextM = mCols[completedIdx + 1];
-    const nextMe = months.find(x=>x.month===nextM);
-    // If next month has attempts or any data, it's pending
-    if(nextMe && ((nextMe.attempts||[]).length > 0 || nextMe.assessment_done)) {
-      return 'Month ' + nextM + ' Assessment Pending';
+    const hasAttempts = (me.attempts||[]).length > 0;
+    if(ad === 'yes') {
+      latestActivityMonth = m; latestActivityState = 'yes';
+      lastCompleted = m;
+    } else if(ad === 'no') {
+      latestActivityMonth = m; latestActivityState = 'no';
+    } else if(hasAttempts) {
+      latestActivityMonth = m; latestActivityState = 'pending';
     }
-    // No activity in next month — stay on last completed
-    return 'Month ' + lastCompleted + ' Assessment Completed';
+    // record exists but no attempts and no answer → ignore, look further
   }
 
-  // No month completed — check if M1 has any activity — Changed 2026-05-06
-  if(months.length > 0) {
-    const m1 = months.find(x=>x.month===mCols[0]);
-    if(m1 && ((m1.attempts||[]).length > 0 || m1.assessment_done)) {
-      return 'Month ' + mCols[0] + ' Assessment Pending';
-    }
-  }
+  // Derive status from the latest activity
+  if(latestActivityState === 'no')      return 'Inactive from Month ' + latestActivityMonth + ' Assessment';
+  if(latestActivityState === 'pending') return 'Month ' + latestActivityMonth + ' Assessment Pending';
+  if(latestActivityState === 'yes')     return 'Month ' + lastCompleted + ' Assessment Completed';
 
-  // Coach assigned but no activity yet — Changed 2026-05-06
+  // No activity anywhere — coach assigned but nothing started yet
   if(sec.coach) return 'Welcome Call Completed';
-
   return 'Welcome Call Completed';
 }
 
@@ -1700,8 +1693,12 @@ function applyAutoStatus(mod, patient) {
   const el = document.getElementById(mod+'-c-status'); // Prefixed — Changed 2026-05-04
   if(!el) return;
   const current = el.value||'';
-  // If manually set to inactive or "others" or "Plan Ended", don't override
-  if(current.toLowerCase().includes('inactive') || current === 'others' || current === 'Plan Ended') return;
+  // Don't override TRULY manual statuses. "Inactive from Month X Assessment"
+  // is auto-generated and SHOULD be overridable when later activity changes
+  // the picture (latest-activity-wins). Coaches who want to definitively
+  // mark a patient gone should use "Plan Ended" or "others" — those stay
+  // protected. — Changed 2026-05-14 IST
+  if(current === 'others' || current === 'Plan Ended') return;
   const calc = calcCoachStatus(mod, patient);
   el.value = calc;
 }
