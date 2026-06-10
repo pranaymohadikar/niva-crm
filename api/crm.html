@@ -1357,6 +1357,21 @@ async function saveNewAttempt(mod, type) {
   if(!date||!disp){toast('Date and disposition required',false);return;}
   const data = mod==='rm' ? {date,time,remarks:disp+(rem?' - '+rem:'')} : {date,time,disposition:disp};
   const attType = mod==='rm' ? 'wc_attempts' : 'attempts';
+  // Flush any pending panel-level field edits (HP, remarks, coach assignments,
+  // status, etc.) BEFORE logging the attempt — otherwise the re-render at the
+  // end of this function rebuilds the dropdowns from local data and wipes any
+  // unsaved selections. Abort on persist failure (don't log the attempt if we
+  // can't save the user's intent). canEdit failures in the persist helpers
+  // are silently skipped (logging an attempt is its own access right).
+  // Added 2026-05-14 IST
+  try {
+    if(mod === 'rm') await persistRMFields(id);
+    else            await persistCoachFields(mod, id);
+  } catch(e) {
+    console.error('Flush before attempt failed:', e);
+    toast('Save failed: ' + e.message + ' — attempt NOT logged', false);
+    return;
+  }
   try {
     await apiPost('/api/patients/attempt',{patient_id:id,section:mod==='rm'?'rm':mod,month:type==='wc'?null:parseInt(type),attempt_type:attType,data,user:getUser(),role:getRole()});
     const p = pat(id);
@@ -1367,14 +1382,43 @@ async function saveNewAttempt(mod, type) {
       if(!me){me={month:m,attempts:[]};sec.months=sec.months||[];sec.months.push(me);}
       (me.attempts=me.attempts||[]).push(data);
     }
+    // Coach tabs: recompute status from latest activity now that the attempt
+    // is in local data. Respect manual statuses (Plan Ended / others). Failure
+    // to update status should NOT abort — the attempt itself succeeded.
+    // Added 2026-05-14 IST
+    if(mod !== 'rm') {
+      const currentStatus = p[mod]?.status || null;
+      const isManuallyProtected = currentStatus === 'Plan Ended' || currentStatus === 'others';
+      if(!isManuallyProtected) {
+        const newStatus = calcCoachStatus(mod, p);
+        if(newStatus !== currentStatus) {
+          try {
+            await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'status',value:newStatus,user:getUser(),role:getRole()});
+            p[mod].status = newStatus;
+          } catch(statusErr) {
+            console.error('Status auto-update failed (attempt still logged):', statusErr);
+            toast('Attempt logged but status update failed: ' + statusErr.message, false);
+          }
+        }
+      }
+    }
+    // Re-render the relevant table so the row reflects the new attempt dots
+    // and (for coach tabs) the updated status. — Added 2026-05-14 IST
+    if(mod === 'rm') renderRMTable();
+    else renderCoachTable(mod);
     toast('Attempt logged ✓');
     if(mod==='rm') openRMPanel(id); else openCoachPanel(mod,id);
   } catch(e){toast('Failed: '+e.message,false);}
 }
 
-async function saveRM(id) {
-  if(!canEdit('rm')&&!canEdit('cs')){toast('You don\'t have edit access to RM',false);return;} // Guard — Added 2026-05-01
-  const p = pat(id); if(!p) return;
+// persistRMFields — saves all dirty RM/CS/coach-assignment fields to the
+// backend. No UI side effects (no toast, no render, no panel reopen).
+// Throws on API failure so callers can abort. Returns the count of changes.
+// Used by both saveRM (with side effects) and saveNewAttempt (silent flush
+// before logging an attempt). Added 2026-05-14 IST
+async function persistRMFields(id) {
+  if(!canEdit('rm')&&!canEdit('cs')) return 0;  // No edit access — skip silently
+  const p = pat(id); if(!p) return 0;
   const updates = [
     ['rm','health_partner','rm-hp'], ['rm','welcome_call_done','rm-wc'],
     ['rm','welcome_call_completion_date','rm-wcdate'], ['rm','metabolic_assessment','rm-met'],
@@ -1383,55 +1427,59 @@ async function saveRM(id) {
     ['rm','cs_agent','rm-cs'], ['rm','cs_call_date','rm-csdate'], ['rm','cs_remarks','rm-csrem'],
   ];
   const coachUpdates = [['diet','coach','rm-dc'],['wellness','coach','rm-wc2'],['physio','coach','rm-pc']];
-  let changesMade = 0; // Track if anything actually saved — Added 2026-05-04
-  try {
-    for(const [sec,field,elId] of updates) {
-      const el = document.getElementById(elId);
-      if(!el) continue; // Element not in DOM (read-only mode) — skip — Changed 2026-05-04
-      const v = el.value.trim() || null;
-      const existing = p[sec]?.[field] || null;
-      if(v !== existing) {
-        console.log(`Saving: ${sec}.${field} = "${v}" (was "${existing}")`); // Debug — Added 2026-05-04
-        await apiPut('/api/patients/update',{patient_id:id,section:sec,field,value:v,user:getUser(),role:getRole()});
-        p[sec][field] = v;
-        changesMade++;
-      }
+  let changesMade = 0;
+  for(const [sec,field,elId] of updates) {
+    const el = document.getElementById(elId);
+    if(!el) continue;
+    const v = el.value.trim() || null;
+    const existing = p[sec]?.[field] || null;
+    if(v !== existing) {
+      console.log(`Saving: ${sec}.${field} = "${v}" (was "${existing}")`);
+      await apiPut('/api/patients/update',{patient_id:id,section:sec,field,value:v,user:getUser(),role:getRole()});
+      p[sec][field] = v;
+      changesMade++;
     }
-    for(const [sec,field,elId] of coachUpdates) {
-      const el = document.getElementById(elId);
-      if(!el) continue; // Changed 2026-05-04
-      const v = el.value.trim() || null;
-      const existing = p[sec]?.[field] || null;
-      if(v !== existing) {
-        console.log(`Saving coach: ${sec}.${field} = "${v}" (was "${existing}")`); // Debug — Added 2026-05-04
-        await apiPut('/api/patients/update',{patient_id:id,section:sec,field,value:v,user:getUser(),role:getRole()});
-        p[sec][field] = v;
-        changesMade++;
-      }
+  }
+  for(const [sec,field,elId] of coachUpdates) {
+    const el = document.getElementById(elId);
+    if(!el) continue;
+    const v = el.value.trim() || null;
+    const existing = p[sec]?.[field] || null;
+    if(v !== existing) {
+      console.log(`Saving coach: ${sec}.${field} = "${v}" (was "${existing}")`);
+      await apiPut('/api/patients/update',{patient_id:id,section:sec,field,value:v,user:getUser(),role:getRole()});
+      p[sec][field] = v;
+      changesMade++;
     }
-    if(changesMade > 0) {
-      // Auto-update coaching statuses if WC changed — Added 2026-05-04
-      for(const mod of ['diet','wellness','physio']) {
-        if(p[mod]) {
-          const newStatus = calcCoachStatus(mod, p);
-          const currentStatus = p[mod].status || null;
-          // Only update if current status is not manually set to inactive/others/Plan Ended
-          if(!currentStatus || (!currentStatus.toLowerCase().includes('inactive') && currentStatus !== 'others' && currentStatus !== 'Plan Ended')) {
-            if(newStatus !== currentStatus) {
-              console.log(`Auto-updating ${mod} status: "${currentStatus}" → "${newStatus}"`); // Debug
-              await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'status',value:newStatus,user:getUser(),role:getRole()});
-              p[mod].status = newStatus;
-            }
+  }
+  if(changesMade > 0) {
+    // Auto-update coaching statuses if WC changed
+    for(const mod of ['diet','wellness','physio']) {
+      if(p[mod]) {
+        const newStatus = calcCoachStatus(mod, p);
+        const currentStatus = p[mod].status || null;
+        if(!currentStatus || (!currentStatus.toLowerCase().includes('inactive') && currentStatus !== 'others' && currentStatus !== 'Plan Ended')) {
+          if(newStatus !== currentStatus) {
+            console.log(`Auto-updating ${mod} status: "${currentStatus}" → "${newStatus}"`);
+            await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'status',value:newStatus,user:getUser(),role:getRole()});
+            p[mod].status = newStatus;
           }
         }
       }
-      toast(`Saved ${changesMade} changes ✓`);
-    } else {
-      toast('No changes to save');
     }
-    updateCounts(); renderRMTable(); // Preserve filters — Changed 2026-05-08
-    loadNotifications(); // Refresh bell badge — Added 2026-05-05
-    openRMPanel(id); // Re-open panel to show updated values — Added 2026-05-04
+  }
+  return changesMade;
+}
+
+async function saveRM(id) {
+  if(!canEdit('rm')&&!canEdit('cs')){toast('You don\'t have edit access to RM',false);return;}
+  try {
+    const changesMade = await persistRMFields(id);
+    if(changesMade > 0) toast(`Saved ${changesMade} changes ✓`);
+    else toast('No changes to save');
+    updateCounts(); renderRMTable();
+    loadNotifications();
+    openRMPanel(id);
   } catch(e){console.error('Save failed:',e);toast('Failed: '+e.message,false);}
 }
 
@@ -1812,89 +1860,98 @@ function showMonth(mod, id, m) {
   applyAutoStatus(mod, pat(id));
 }
 
-async function saveCoach(mod, id) {
-  if(!canEdit(mod)){toast('No edit access to '+mod,false);return;} // Guard — Added 2026-05-01
+// persistCoachFields — saves coach + current month's fields + status + notes
+// for the given module. No UI side effects. Throws on API failure so callers
+// can abort. Used by both saveCoach (with side effects) and saveNewAttempt
+// (silent flush before logging an attempt). Added 2026-05-14 IST
+async function persistCoachFields(mod, id) {
+  if(!canEdit(mod)) return;  // No edit access — skip silently
   const p = pat(id); if(!p) return;
   const sec = p[mod]||{};
   const m = window._activeMonth;
+
+  // Save coach
+  const coachEl = document.getElementById(mod+'-c-coach');
+  if(coachEl) {
+    const coach = coachEl.value.trim() || null;
+    if(coach !== (sec.coach||null)) {
+      console.log(`Saving ${mod} coach: "${sec.coach}" -> "${coach}"`);
+      await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'coach',value:coach,user:getUser(),role:getRole()});
+      sec.coach = coach;
+    }
+  }
+
+  // Save monthly fields for active month
+  if(m) {
+    let months = sec.months||[];
+    let me = months.find(x=>x.month===m);
+    if(!me) { me = {month:m, attempts:[]}; months.push(me); sec.months = months; }
+
+    const assessEl = document.getElementById(mod+'-m-assess-yn');
+    if(assessEl) me.assessment_done = assessEl.value.trim() || null;
+    const assessDateEl = document.getElementById(mod+'-m-assess-date');
+    if(assessDateEl) me.assessment_date = assessDateEl.value.trim() || null;
+
+    if(mod==='diet') {
+      const el1 = document.getElementById(mod+'-m-plan-yn');
+      if(el1) me.plan_assigned = el1.value.trim() || null;
+      const el2 = document.getElementById(mod+'-m-plan-date');
+      if(el2) me.plan_date = el2.value.trim() || null;
+      const el3 = document.getElementById(mod+'-m-plan-comments');
+      if(el3) me.plan_comments = el3.value.trim() || null;
+    } else if(mod==='physio') {
+      const el1 = document.getElementById(mod+'-m-plan-yn');
+      if(el1) me.exercise_plan_assigned = el1.value.trim() || null;
+      const el2 = document.getElementById(mod+'-m-plan-date');
+      if(el2) me.exercise_plan_date = el2.value.trim() || null;
+      const el3 = document.getElementById(mod+'-m-plan-comments');
+      if(el3) me.exercise_plan_comments = el3.value.trim() || null;
+      const el4 = document.getElementById(mod+'-m-fu-yn');
+      if(el4) me.followup_done = el4.value.trim() || null;
+      const el5 = document.getElementById(mod+'-m-fu-date');
+      if(el5) me.followup_date = el5.value.trim() || null;
+    } else if(mod==='wellness') {
+      const el1 = document.getElementById(mod+'-m-cbt');
+      if(el1) me.cbt_tools = el1.value.trim() || null;
+      const el2 = document.getElementById(mod+'-m-well-comments');
+      if(el2) me.comments = el2.value.trim() || null;
+    }
+
+    console.log(`Saving ${mod} months:`, JSON.stringify(months.map(x=>({m:x.month, done:x.assessment_done, atts:x.attempts?.length||0}))));
+    await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'months',value:months,user:getUser(),role:getRole()});
+  }
+
+  // Auto-calc status
+  const statusEl = document.getElementById(mod+'-c-status');
+  const manualStatus = statusEl ? (statusEl.value.trim() || null) : (sec.status || null);
+  let finalStatus = manualStatus;
+  if(!manualStatus || (!manualStatus.toLowerCase().includes('inactive') && manualStatus !== 'others' && manualStatus !== 'Plan Ended')) {
+    finalStatus = calcCoachStatus(mod, p);
+  }
+  if(finalStatus !== (sec.status||null)) {
+    console.log(`Status ${mod}: "${sec.status}" -> "${finalStatus}"`);
+    await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'status',value:finalStatus,user:getUser(),role:getRole()});
+    sec.status = finalStatus;
+  }
+
+  // Save current status notes
+  const curStatEl = document.getElementById(mod+'-c-curstat');
+  if(curStatEl) {
+    const curStat = curStatEl.value.trim() || null;
+    if(curStat !== (sec.current_status||null)) {
+      await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'current_status',value:curStat,user:getUser(),role:getRole()});
+      sec.current_status = curStat;
+    }
+  }
+}
+
+async function saveCoach(mod, id) {
+  if(!canEdit(mod)){toast('No edit access to '+mod,false);return;}
   try {
-    // Save coach — Changed 2026-05-04: prefixed IDs with mod
-    const coachEl = document.getElementById(mod+'-c-coach');
-    if(coachEl) {
-      const coach = coachEl.value.trim() || null;
-      if(coach !== (sec.coach||null)) {
-        console.log(`Saving ${mod} coach: "${sec.coach}" -> "${coach}"`);
-        await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'coach',value:coach,user:getUser(),role:getRole()});
-        sec.coach = coach;
-      }
-    }
-
-    // Save monthly fields — Changed 2026-05-04: prefixed IDs with mod
-    if(m) {
-      let months = sec.months||[];
-      let me = months.find(x=>x.month===m);
-      if(!me) { me = {month:m, attempts:[]}; months.push(me); sec.months = months; }
-
-      const assessEl = document.getElementById(mod+'-m-assess-yn');
-      if(assessEl) me.assessment_done = assessEl.value.trim() || null;
-      const assessDateEl = document.getElementById(mod+'-m-assess-date');
-      if(assessDateEl) me.assessment_date = assessDateEl.value.trim() || null;
-
-      if(mod==='diet') {
-        const el1 = document.getElementById(mod+'-m-plan-yn');
-        if(el1) me.plan_assigned = el1.value.trim() || null;
-        const el2 = document.getElementById(mod+'-m-plan-date');
-        if(el2) me.plan_date = el2.value.trim() || null;
-        const el3 = document.getElementById(mod+'-m-plan-comments');
-        if(el3) me.plan_comments = el3.value.trim() || null;
-      } else if(mod==='physio') {
-        const el1 = document.getElementById(mod+'-m-plan-yn');
-        if(el1) me.exercise_plan_assigned = el1.value.trim() || null;
-        const el2 = document.getElementById(mod+'-m-plan-date');
-        if(el2) me.exercise_plan_date = el2.value.trim() || null;
-        const el3 = document.getElementById(mod+'-m-plan-comments');
-        if(el3) me.exercise_plan_comments = el3.value.trim() || null;
-        const el4 = document.getElementById(mod+'-m-fu-yn');
-        if(el4) me.followup_done = el4.value.trim() || null;
-        const el5 = document.getElementById(mod+'-m-fu-date');
-        if(el5) me.followup_date = el5.value.trim() || null;
-      } else if(mod==='wellness') {
-        const el1 = document.getElementById(mod+'-m-cbt');
-        if(el1) me.cbt_tools = el1.value.trim() || null;
-        const el2 = document.getElementById(mod+'-m-well-comments');
-        if(el2) me.comments = el2.value.trim() || null;
-      }
-
-      console.log(`Saving ${mod} months:`, JSON.stringify(months.map(x=>({m:x.month, done:x.assessment_done, atts:x.attempts?.length||0}))));
-      await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'months',value:months,user:getUser(),role:getRole()});
-    }
-
-    // Auto-calc status — Changed 2026-05-04: prefixed ID
-    const statusEl = document.getElementById(mod+'-c-status');
-    const manualStatus = statusEl ? (statusEl.value.trim() || null) : (sec.status || null);
-    let finalStatus = manualStatus;
-    if(!manualStatus || (!manualStatus.toLowerCase().includes('inactive') && manualStatus !== 'others' && manualStatus !== 'Plan Ended')) {
-      finalStatus = calcCoachStatus(mod, p);
-    }
-    if(finalStatus !== (sec.status||null)) {
-      console.log(`Status ${mod}: "${sec.status}" -> "${finalStatus}"`);
-      await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'status',value:finalStatus,user:getUser(),role:getRole()});
-      sec.status = finalStatus;
-    }
-
-    // Save current status notes — Changed 2026-05-04: prefixed ID
-    const curStatEl = document.getElementById(mod+'-c-curstat');
-    if(curStatEl) {
-      const curStat = curStatEl.value.trim() || null;
-      if(curStat !== (sec.current_status||null)) {
-        await apiPut('/api/patients/update',{patient_id:id,section:mod,field:'current_status',value:curStat,user:getUser(),role:getRole()});
-        sec.current_status = curStat;
-      }
-    }
-
-    toast('Saved ✓'); updateCounts(); renderCoachTable(mod); // Preserve filters — Changed 2026-05-08
-    loadNotifications(); // Refresh bell badge — Added 2026-05-05
-    openCoachPanel(mod, id); // Re-open panel to show updated values — Added 2026-05-04
+    await persistCoachFields(mod, id);
+    toast('Saved ✓'); updateCounts(); renderCoachTable(mod);
+    loadNotifications();
+    openCoachPanel(mod, id);
   } catch(e){console.error('saveCoach failed:',e);toast('Failed: '+e.message,false);}
 }
 
