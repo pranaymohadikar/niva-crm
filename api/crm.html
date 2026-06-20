@@ -79,6 +79,7 @@ table.dt tr.sel td{background:#DBEAFE;border-bottom-color:#BFDBFE}
 .pill-blue{background:var(--acc-bg);color:var(--acc-tx)}
 .pill-purple{background:var(--purple-bg);color:var(--purple-tx)}
 .pill-gray{background:var(--bg3);color:var(--tx3)}
+.muted{color:var(--tx3);opacity:0.55}  /* Added 2026-05-14 IST: dash placeholder for quiet cells */
 .ct{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;background:var(--bg3);color:var(--tx2);margin:1px 2px}
 .dots{display:flex;gap:3px}
 .dot{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--border2)}
@@ -810,6 +811,63 @@ function followupDueCell(p) {
   if (daysOffset <= 3) return '<span class="pill pill-amber">Due in ' + daysOffset + ' day' + (daysOffset>1?'s':'') + '</span>';
   return '<span class="pill pill-green">' + dueDate + '</span>';
 }
+
+// ─── COACH MONTHLY FOLLOW-UP DUE (computed, no DB field) — Added 2026-05-14 IST ───
+// Mirrors the RM Weekly follow-up logic, but for coach module monthly sessions.
+// Anchored to the patient's LATEST assessment_date (Yes or No — any session with a date).
+// Cadence: +30 days for diet/wellness (monthly), +90 days for physio (quarterly).
+// Visibility window: column only shows a pill within 3 days of the due date or once
+// overdue. Outside that window, the cell shows a dash. This keeps the column quiet
+// for the ~27 days when nothing actionable is pending, then surfaces it close to due.
+// Pure UI/computation — no schema, no migration, no backend change.
+function coachCadenceDays(mod) {
+  return mod === 'physio' ? 90 : 30;  // quarterly for physio, monthly otherwise
+}
+
+function nextCoachFollowupDue(p, mod) {
+  // Plan ended → nothing to follow up
+  if (planStatus(p) === 'Expired') return { kind: 'expired' };
+  const sec = p[mod] || {};
+  const months = sec.months || [];
+  // Find the latest assessment_date across all months for this module
+  // (assessment_done can be Yes or No — both count as "a session happened on this date")
+  let lastDate = null;
+  for (const me of months) {
+    if (me.assessment_date && (!lastDate || me.assessment_date > lastDate)) {
+      lastDate = me.assessment_date;
+    }
+  }
+  // No session date yet → no follow-up computable
+  if (!lastDate) return { kind: 'awaiting_first' };
+  // Compute due date = last assessment + cadence
+  const d = new Date(lastDate);
+  if (isNaN(d.getTime())) return { kind: 'awaiting_first' };  // unparseable date
+  d.setDate(d.getDate() + coachCadenceDays(mod));
+  const dueDate = d.toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0];
+  const todayD = new Date(today);
+  const daysOffset = Math.round((d - todayD) / (1000 * 60 * 60 * 24));
+  return { kind: 'due', dueDate, daysOffset };
+}
+
+// Render the coach follow-up due cell. Stays quiet (dash) outside the 3-day
+// visibility window; shows amber pills within 0-3 days; shows red when overdue.
+// Added 2026-05-14 IST
+function coachFollowupDueCell(p, mod) {
+  const r = nextCoachFollowupDue(p, mod);
+  if (r.kind === 'expired') return '<span class="pill pill-gray">Plan Ended</span>';
+  if (r.kind === 'awaiting_first') return '<span class="muted">—</span>';
+  const { daysOffset } = r;
+  // Overdue → red, however far past
+  if (daysOffset < 0) return '<span class="pill pill-red">' + Math.abs(daysOffset) + ' day' + (Math.abs(daysOffset)>1?'s':'') + ' overdue</span>';
+  // Within 3-day visibility window → amber
+  if (daysOffset === 0) return '<span class="pill pill-amber">Due today</span>';
+  if (daysOffset === 1) return '<span class="pill pill-amber">Due tomorrow</span>';
+  if (daysOffset <= 3) return '<span class="pill pill-amber">Due in ' + daysOffset + ' days</span>';
+  // Beyond 3 days → quiet (dash). Don't surface yet.
+  return '<span class="muted">—</span>';
+}
+// ─── end coach follow-up due helpers ───
 function optHtml(list, selected, placeholder) {
   let h = '<option value="">'+(placeholder||'— Select —')+'</option>';
   (list||[]).forEach(v => { h += '<option'+(v===selected?' selected':'')+'>'+esc(v)+'</option>'; });
@@ -1625,6 +1683,8 @@ function renderCoachTab(mod) {
       <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(coachList,null,'All Coaches')}</select>
       <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
       <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
+      <!-- Follow-up Status filter — Added 2026-05-14 IST -->
+      <select class="filter-sel" onchange="renderCoachTable('${mod}')">${optHtml(['Overdue','Due today','Due tomorrow','Due in 2-3 days'],null,'All Follow-up Status')}</select>
       <div class="kpi-strip">
         <span class="kpi kpi-green" id="${mod}-kpi-active">Active assessment: 0</span>
         <span class="kpi kpi-red" id="${mod}-kpi-inactive">Inactive assessment: 0</span>
@@ -1643,14 +1703,30 @@ function renderCoachTable(mod) {
   const sels = document.querySelectorAll('#tab-'+mod+' .filter-sel');
   const search = document.querySelector('#tab-'+mod+' .search')?.value||'';
   const planStatusFilter = sels[3]?.value || null;
-  // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  maybeResetPage(mod, [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,planStatusFilter].join('|'));
+  const followupFilter = sels[4]?.value || null;  // Added 2026-05-14 IST: follow-up bucket filter
+  // Reset to page 1 on any filter change — Added 2026-05-14 IST (followup added to key)
+  maybeResetPage(mod, [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,planStatusFilter,followupFilter].join('|'));
   // Sort by purchase date descending (newest first) — Added 2026-05-14 IST
   const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
-  const filtered = filterPatients(sorted,{search,status:sels[0]?.value?sels[0].value:null,section:sels[0]?.value?mod:null,
+  let filtered = filterPatients(sorted,{search,status:sels[0]?.value?sels[0].value:null,section:sels[0]?.value?mod:null,
     coach:sels[1]?.value||null,condition:sels[2]?.value||null,planStatus:planStatusFilter});
   // Filter by coach for the right section
-  const list = sels[1]?.value ? filtered.filter(p=>p[mod]?.coach===sels[1].value) : filtered;
+  if(sels[1]?.value) filtered = filtered.filter(p=>p[mod]?.coach===sels[1].value);
+  // Follow-up bucket filter — Added 2026-05-14 IST.
+  // Buckets match the visible-window pills (≤3 days + overdue). Patients outside
+  // the window (no assessment yet, or due in 4+ days) are excluded from any bucket.
+  if(followupFilter) {
+    filtered = filtered.filter(p => {
+      const r = nextCoachFollowupDue(p, mod);
+      if (r.kind !== 'due') return false;  // expired or awaiting_first → not in any bucket
+      if (followupFilter === 'Overdue')        return r.daysOffset < 0;
+      if (followupFilter === 'Due today')      return r.daysOffset === 0;
+      if (followupFilter === 'Due tomorrow')   return r.daysOffset === 1;
+      if (followupFilter === 'Due in 2-3 days') return r.daysOffset === 2 || r.daysOffset === 3;
+      return true;
+    });
+  }
+  const list = filtered;
 
   // KPI pills react ONLY to Plan Status filter, not search/status/coach/condition — Changed 2026-05-12
   const pillScope = planStatusFilter
@@ -1669,7 +1745,9 @@ function renderCoachTable(mod) {
   const mCols = monthColsFor(mod);  // Changed 2026-05-14 IST: M1-M12 / physio quarterly
   const coachField = mod==='physio'?'coach':'coach';
 
-  let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Duration</th><th>Coach</th><th>Status</th>';
+  // Added 2026-05-14 IST: "Next Follow-up" column shows pill when within 3 days of due
+  // or once overdue; stays as a dash otherwise so the column is quiet outside the window.
+  let h = '<table class="dt"><thead><tr><th>#</th><th>Patient Name</th><th>Phone</th><th>Condition</th><th>Duration</th><th>Coach</th><th>Status</th><th>Next Follow-up</th>';
   mCols.forEach(m=>h+='<th>M'+m+'</th>');
   h += '<th>Current Status</th></tr></thead><tbody>';
   pg.slice.forEach((p,i) => {
@@ -1678,7 +1756,8 @@ function renderCoachTable(mod) {
       <td>${pg.start+i+1}</td><td class="pn">${esc(p.seed.patient_name)}</td><td class="ph">${esc(p.seed.contact_number)}</td>
       <td>${condPill(p.seed.condition_type)}</td><td>${esc(p.seed.plan_duration)}</td>
       <td><span class="ct">${esc(sec.coach)}</span></td>
-      <td>${statusPill(sec.status)}</td>`;
+      <td>${statusPill(sec.status)}</td>
+      <td>${coachFollowupDueCell(p, mod)}</td>`;
     mCols.forEach(m=>h+='<td>'+monthIcon(sec.months,m)+'</td>');
     h += `<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${esc(sec.current_status)}</td></tr>`;
   });
