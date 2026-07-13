@@ -1001,7 +1001,7 @@ async def sync_sales_csv(file: UploadFile = File(...), user: str = "admin", role
             p = Patient(
                 patient_name=name,
                 contact_number=phone,
-                alt_number=_sync_safe_str(row.get("Alt No.")),
+                alt_number=_sync_safe_str(row.get("Alternate Number") or row.get("Alt No.")),
                 condition_type=_sync_safe_str(row.get("Program Name")),
                 plan_purchase_date=pdate,
                 # CSV header rename handling — Changed 2026-05-14 IST.
