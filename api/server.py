@@ -1004,8 +1004,13 @@ async def sync_sales_csv(file: UploadFile = File(...), user: str = "admin", role
                 alt_number=_sync_safe_str(row.get("Alt No.")),
                 condition_type=_sync_safe_str(row.get("Program Name")),
                 plan_purchase_date=pdate,
-                plan_duration=_sync_safe_str(row.get("Duration")),
-                plan_price=_sync_safe_str(row.get("Amount")),
+                # CSV header rename handling — Changed 2026-05-14 IST.
+                # Source template renamed "Duration" → "Care Plan Duration" and
+                # "Amount" → "Care Plan Amount". Try the new names first, then
+                # fall back to the old names so historical CSV files still parse.
+                # (Alt No. column may have been renamed too — pending header confirmation.)
+                plan_duration=_sync_safe_str(row.get("Care Plan Duration") or row.get("Duration")),
+                plan_price=_sync_safe_str(row.get("Care Plan Amount") or row.get("Amount")),
                 expiry_date=_sync_norm_date(row.get("Expiry date")),
                 isa_owner_id=resolve_staff_id(db, "isa_owner", isa_name),
                 isa_owner=isa_name,
