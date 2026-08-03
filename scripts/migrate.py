@@ -21,7 +21,6 @@ For local SQLite, no env var needed — falls back to sqlite:///crm.db.
 import pandas as pd
 import sys
 import os
-import hashlib
 from pathlib import Path
 from datetime import datetime, date, time as dt_time
 
@@ -266,16 +265,6 @@ for ln, vals in dd.items():
 db.commit()
 
 
-# ─── STEP 5: DEFAULT ADMIN ───
-pw_hash = hashlib.sha256(b"admin123").hexdigest()
-try:
-    import bcrypt
-    pw_hash = bcrypt.hashpw(b"admin123", bcrypt.gensalt()).decode()
-except ImportError: pass
-db.add(User(username="admin", password_hash=pw_hash, name="Admin", role="admin"))
-db.commit()
-print("  Admin user created (admin / admin123)")
-
 
 # ─── STEP 6: INSERT PATIENTS — Changed 2026-05-04: stores both ID and name ───
 print(f"\nInserting {len(csv_real)} patients...")
@@ -486,7 +475,6 @@ else:
     print(f"  Database: {safe_url}")
 print(f"  Patients: {count}")
 print(f"  Staff: {len(staff_entries)}")
-print(f"  Admin login: admin / admin123")
 wcd = db.query(RMData).filter(RMData.welcome_call_done=="Yes").count()
 print(f"  WC Done: {wcd}/{count}")
 db.close()
