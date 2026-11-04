@@ -37,6 +37,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .filter-bar{display:flex;align-items:center;gap:10px;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap}
 .filter-bar .search{flex:1;min-width:200px;max-width:280px;padding:7px 12px 7px 34px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A8985' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 10px center no-repeat;outline:none}
 .filter-bar .search:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,0.1)}
+.date-f-wrap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2)}
+.date-f{padding:6px 8px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;color:var(--tx);background:var(--bg);outline:none}
 .filter-sel{padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;color:var(--tx);background:var(--bg);cursor:pointer;outline:none}
 .btn{padding:7px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all 0.15s}
 .btn-primary{background:var(--acc);color:#fff}.btn-primary:hover{background:var(--acc2)}
@@ -911,6 +913,23 @@ function statusPill(status) {
   if(s.includes('pending')) return '<span class="pill pill-amber">'+esc(status)+'</span>';
   return '<span class="pill pill-blue">'+esc(status)+'</span>';
 }
+// Purchase-date range inputs shared by Sales and RM tabs. renderFn = table re-render function name.
+function purchaseDateFilterHtml(tab, renderFn) {
+  return `<span class="date-f-wrap">Purchased
+    <input type="date" class="date-f date-from" title="Purchase date from" onchange="${renderFn}()">
+    to <input type="date" class="date-f date-to" title="Purchase date to" onchange="${renderFn}()">
+    <button class="btn btn-ghost btn-sm" onclick="clearPurchaseDateFilter('${tab}','${renderFn}')">Clear</button></span>`;
+}
+function getPurchaseDateRange(tab) {
+  return {
+    dateFrom: document.querySelector(`#tab-${tab} .date-from`)?.value || '',
+    dateTo: document.querySelector(`#tab-${tab} .date-to`)?.value || ''
+  };
+}
+function clearPurchaseDateFilter(tab, renderFn) {
+  document.querySelectorAll(`#tab-${tab} .date-f`).forEach(i => i.value = '');
+  window[renderFn]();
+}
 function filterPatients(list, filters) {
   return list.filter(p => {
     if(filters.search) {
@@ -922,6 +941,12 @@ function filterPatients(list, filters) {
     if(filters.condition && p.seed.condition_type!==filters.condition) return false;
     if(filters.duration && p.seed.plan_duration!==filters.duration) return false;
     if(filters.hp && p.rm?.health_partner!==filters.hp) return false;
+    if(filters.dateFrom || filters.dateTo) { // Purchase date range (ISO yyyy-mm-dd, inclusive)
+      const d = p.seed.plan_purchase_date || '';
+      if(!d) return false;
+      if(filters.dateFrom && d < filters.dateFrom) return false;
+      if(filters.dateTo && d > filters.dateTo) return false;
+    }
     if(filters.wc) {
       if(filters.wc==='Yes'&&p.rm?.welcome_call_done!=='Yes') return false;
       if(filters.wc==='No'&&p.rm?.welcome_call_done==='Yes') return false;
@@ -1026,6 +1051,7 @@ function renderSales() {
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(dropdowns.durations,null,'All Durations')}</select>
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(['Active','Expired','Unknown'],null,'All Plan Status')}</select>
+      ${purchaseDateFilterHtml('sales','renderSalesTable')}
       ${canEdit('seed')?'<button class="btn btn-primary" onclick="openSalesAdd()" style="margin-left:auto">+ Add new patient</button>':''}
       ${getRole()==='admin'?'<button class="btn btn-ghost" onclick="document.getElementById(\'sales-csv-input\').click()" style="margin-left:8px">⬆ Upload Sales CSV</button><input type="file" id="sales-csv-input" accept=".csv" style="display:none" onchange="uploadSalesCSV(this)">':''}
       <div class="kpi-strip">
@@ -1116,9 +1142,10 @@ function renderSalesTable() {
   const dur = sels[1]?.value||'';
   const ps = sels[2]?.value||''; // Plan status filter — Added 2026-05-06
   // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  maybeResetPage('sales', [search,cond,dur,ps].join('|'));
+  const dr = getPurchaseDateRange('sales');
+  maybeResetPage('sales', [search,cond,dur,ps,dr.dateFrom,dr.dateTo].join('|'));
   const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
-  const filtered = filterPatients(sorted, {search, condition:cond, duration:dur, planStatus:ps||null});
+  const filtered = filterPatients(sorted, {search, condition:cond, duration:dur, planStatus:ps||null, ...dr});
   // Pagination — Added 2026-05-14 IST
   const pg = paginate(filtered, 'sales');
 
@@ -1277,6 +1304,7 @@ function renderRM() {
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.health_partners,null,'All HP')}</select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Yes','No'],null,'All WC Status')}</select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
+      ${purchaseDateFilterHtml('rm','renderRMTable')}
       <div class="kpi-strip">
         <span class="kpi kpi-green" id="rm-kpi-wcdone">WC Done: 0</span>
         <span class="kpi kpi-amber" id="rm-kpi-pending">Pending: 0</span>
@@ -1292,10 +1320,11 @@ function renderRMTable() {
   const search = document.querySelector('#tab-rm .search')?.value||'';
   const planStatusFilter = sels[4]?.value || null;
   // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  maybeResetPage('rm', [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,sels[3]?.value,planStatusFilter].join('|'));
+  const dr = getPurchaseDateRange('rm');
+  maybeResetPage('rm', [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,sels[3]?.value,planStatusFilter,dr.dateFrom,dr.dateTo].join('|'));
   // Sort by purchase date descending (newest first), same as Sales tab — Added 2026-05-12
   const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
-  const filtered = filterPatients(sorted,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:planStatusFilter});
+  const filtered = filterPatients(sorted,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:planStatusFilter,...dr});
 
   // KPI pills react ONLY to Plan Status filter, not search/condition/HP/WC — Changed 2026-05-12
   const pillScope = planStatusFilter
