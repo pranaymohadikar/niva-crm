@@ -439,6 +439,47 @@ def resolve_staff_id(db: Session, staff_type: str, name: str) -> Optional[int]:
     staff = db.query(Staff).filter(Staff.type == staff_type, Staff.name == name, Staff.active == True).first()
     return staff.id if staff else None
 
+# ─── HEALTH PARTNER AUTO-ASSIGN (least-loaded) ───
+# Applied to NEW patients only (manual add + Sales CSV upload). Roster = active Staff of type
+# 'health_partner'. Load = active-plan patients (valid YYYY-MM-DD expiry on/after today, IST).
+# Ties go to the lowest staff id. Never blocks patient creation: on any failure HP stays blank.
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+def _today_ist() -> str:
+    return datetime.now(timezone(timedelta(hours=5, minutes=30))).date().isoformat()
+
+def hp_active_loads(db: Session) -> Optional[dict]:
+    """{staff_id: [name, active_plan_patient_count]} for every active HP; None on failure."""
+    try:
+        today = _today_ist()
+        loads = {s.id: [s.name, 0] for s in
+                 db.query(Staff).filter(Staff.type == "health_partner", Staff.active == True).all()}
+        if loads:
+            rows = (db.query(RMData.health_partner_id, Patient.expiry_date)
+                      .join(Patient, Patient.id == RMData.patient_id)
+                      .filter(RMData.health_partner_id.in_(list(loads))).all())
+            for hp_id, exp in rows:
+                e = (exp or "").strip()
+                if _ISO_DATE.fullmatch(e) and e >= today:
+                    loads[hp_id][1] += 1
+        return loads
+    except Exception as e:
+        log.warning(f"HP load lookup failed: {type(e).__name__}: {e}")
+        return None
+
+def auto_assign_hp(loads: Optional[dict], expiry) -> tuple:
+    """Pick the least-loaded HP for a new patient -> (id, name) or (None, None).
+    Skipped when there is no roster or the plan is clearly already expired.
+    Updates `loads` in place so a batch spreads evenly."""
+    if not loads:
+        return None, None
+    e = (expiry or "").strip()
+    if _ISO_DATE.fullmatch(e) and e < _today_ist():
+        return None, None
+    hp_id = min(loads, key=lambda k: (loads[k][1], k))
+    loads[hp_id][1] += 1
+    return hp_id, loads[hp_id][0]
+
 # Create task for a user + head coach copy — Changed 2026-05-06
 def create_task(db: Session, user_id: int, user_name: str, patient_id: int,
                 patient_name: str, task_type: str, message: str, section: str, created_by: str):
@@ -856,10 +897,13 @@ async def add_patient(req: NewPatient, db: Session = Depends(get_db)):
     isa_id = resolve_staff_id(db, "isa_owner", req.seed.isa_owner)
     p = Patient(**{**req.seed.model_dump(), "isa_owner_id": isa_id}, created_by=req.user)
     db.add(p); db.flush()
-    db.add(RMData(patient_id=p.id))
+    hp_id, hp_name = auto_assign_hp(hp_active_loads(db), p.expiry_date)
+    db.add(RMData(patient_id=p.id, health_partner_id=hp_id, health_partner=hp_name))
     for mod in ["diet", "wellness", "physio"]:
         db.add(CoachingData(patient_id=p.id, module=mod, status="Welcome Call Pending"))
     audit(db, req.user, req.role, p.id, "create", "patient", "patient_name", None, p.patient_name)
+    if hp_id:
+        audit(db, req.user, req.role, p.id, "auto_assign", "rm", "health_partner", None, hp_name)
     db.commit()
     return {"status": "ok", "id": str(p.id), "patient": patient_to_dict(p, db)}
 
@@ -953,6 +997,8 @@ async def sync_sales_csv(file: UploadFile = File(...), user: str = "admin", role
         )
         existing_keys.add(key)
 
+    hp_loads_state = hp_active_loads(db)  # updated per row so the batch spreads evenly
+    hp_assigned = 0
     added = 0
     skipped_existing = 0
     skipped_incomplete = 0
@@ -1022,8 +1068,12 @@ async def sync_sales_csv(file: UploadFile = File(...), user: str = "admin", role
                 created_by="sales_upload",  # Traceability tag — Added 2026-05-14 IST
             )
             db.add(p); db.flush()
-            # Create empty RM + coaching rows so the patient is usable in the CRM
-            db.add(RMData(patient_id=p.id))
+            # Create RM + coaching rows so the patient is usable in the CRM (HP auto-assigned, least-loaded)
+            hp_id, hp_name = auto_assign_hp(hp_loads_state, p.expiry_date)
+            db.add(RMData(patient_id=p.id, health_partner_id=hp_id, health_partner=hp_name))
+            if hp_id:
+                audit(db, user, role, p.id, "auto_assign", "rm", "health_partner", None, hp_name)
+                hp_assigned += 1
             for mod in ["diet", "wellness", "physio"]:
                 db.add(CoachingData(patient_id=p.id, module=mod, status="Welcome Call Pending"))
             audit(db, user, role, p.id, "create", "patient", "patient_name", None, p.patient_name)
@@ -1038,6 +1088,7 @@ async def sync_sales_csv(file: UploadFile = File(...), user: str = "admin", role
     return {
         "status": "ok",
         "added": added,
+        "hp_assigned": hp_assigned,
         "skipped_existing": skipped_existing,
         "skipped_incomplete": skipped_incomplete,
         "errors": errors[:20],  # cap error list

@@ -1115,6 +1115,7 @@ async function uploadSalesCSV(input) {
     if (!res.ok) { alert('Upload failed: ' + (data.detail || res.status)); input.value=''; return; }
     let msg = `Sales CSV processed:\n\n`
       + `✓ Added: ${data.added} new patient(s)\n`
+      + (data.hp_assigned != null ? `✓ Health Partner auto-assigned: ${data.hp_assigned}\n` : '')
       + `• Skipped (already exist): ${data.skipped_existing}\n`
       + `• Skipped (incomplete rows): ${data.skipped_incomplete}\n`;
     if (data.error_count > 0) {
