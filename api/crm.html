@@ -37,8 +37,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--tx);font-
 .filter-bar{display:flex;align-items:center;gap:10px;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap}
 .filter-bar .search{flex:1;min-width:200px;max-width:280px;padding:7px 12px 7px 34px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238A8985' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") 10px center no-repeat;outline:none}
 .filter-bar .search:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(37,99,235,0.1)}
+/* Added 2026-11-02 IST by Pranay: purchase date range filter styles (Sales + RM tabs) */
 .date-f-wrap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2)}
 .date-f{padding:6px 8px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;color:var(--tx);background:var(--bg);outline:none}
+/* Added 2026-11-05 IST by Pranay: HP workload strip on the RM tab (active-plan patients per Health Partner) */
+.hp-load-strip{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;height:36px;box-sizing:border-box;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--border);font-size:12px;color:var(--tx2);white-space:nowrap}
+#tab-rm .main-area{height:calc(100vh - 56px - 42px - 50px - 36px)} /* 36px = HP workload strip height */
+.hp-load-chip{padding:3px 10px;border-radius:14px;background:var(--bg3);color:var(--tx);font-weight:500;cursor:pointer}
+.hp-load-chip b{margin-left:4px}
+.hp-load-chip:hover{background:var(--bg4)}
+.kpi-click{cursor:pointer}
+/* Added 2026-11-05 IST by Pranay: dashboard click-through hover styles */
+.dash-link{cursor:pointer}
+.dash-card.dash-link:hover{border-color:var(--acc)}
+.bar-row.dash-link:hover{background:var(--bg3);border-radius:4px}
 .filter-sel{padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);font-size:13px;font-family:inherit;color:var(--tx);background:var(--bg);cursor:pointer;outline:none}
 .btn{padding:7px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all 0.15s}
 .btn-primary{background:var(--acc);color:#fff}.btn-primary:hover{background:var(--acc2)}
@@ -913,6 +925,7 @@ function statusPill(status) {
   if(s.includes('pending')) return '<span class="pill pill-amber">'+esc(status)+'</span>';
   return '<span class="pill pill-blue">'+esc(status)+'</span>';
 }
+// Added 2026-11-02 IST by Pranay: purchase-date range filter helpers (inputs, read range, clear).
 // Purchase-date range inputs shared by Sales and RM tabs. renderFn = table re-render function name.
 function purchaseDateFilterHtml(tab, renderFn) {
   return `<span class="date-f-wrap">Purchased
@@ -930,6 +943,32 @@ function clearPurchaseDateFilter(tab, renderFn) {
   document.querySelectorAll(`#tab-${tab} .date-f`).forEach(i => i.value = '');
   window[renderFn]();
 }
+// Added 2026-11-05 IST by Pranay: strict "active plan" check = valid YYYY-MM-DD expiry on/after today.
+// Same rule the server uses for HP auto-assign, so on-screen HP counts match what assignment balances on.
+// (planStatus() above compares strings, so Excel serials like '46399' wrongly count as Active - left unchanged.)
+function isActivePlanStrict(p) {
+  const e = (p.seed?.expiry_date || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(e) && e >= new Date().toISOString().split('T')[0];
+}
+// Added 2026-11-05 IST by Pranay: HP workload strip - active-plan patients per active HP.
+// Click a chip to filter the RM table to that HP. Reads the current patients list (no backend call).
+function renderHpLoadStrip() {
+  const el = document.getElementById('rm-hp-load'); if(!el) return;
+  const counts = {};
+  (dropdowns.health_partners||[]).forEach(n => counts[n] = 0);
+  patients.forEach(p => {
+    const hp = p.rm?.health_partner;
+    if(hp && hp in counts && isActivePlanStrict(p)) counts[hp]++;
+  });
+  const chips = Object.entries(counts).map(([n,c]) =>
+    `<span class="hp-load-chip" data-hp="${esc(n)}" title="Show this Health Partner's patients" onclick="setRmHpFilter(this.dataset.hp)">${esc(n)}<b>${c}</b></span>`).join('');
+  el.innerHTML = `<span title="New patients go to the active Health Partner with the fewest active-plan patients. Expired plans are skipped.">HP workload (active plans):</span>${chips || '—'}`;
+}
+// Added 2026-11-05 IST by Pranay: set the RM tab HP dropdown ('' = all, '__none__' = unassigned) and re-render.
+function setRmHpFilter(val) {
+  const sel = document.querySelectorAll('#tab-rm .filter-sel')[2];
+  if(sel) { sel.value = val; renderRMTable(); }
+}
 function filterPatients(list, filters) {
   return list.filter(p => {
     if(filters.search) {
@@ -940,8 +979,10 @@ function filterPatients(list, filters) {
     }
     if(filters.condition && p.seed.condition_type!==filters.condition) return false;
     if(filters.duration && p.seed.plan_duration!==filters.duration) return false;
-    if(filters.hp && p.rm?.health_partner!==filters.hp) return false;
-    if(filters.dateFrom || filters.dateTo) { // Purchase date range (ISO yyyy-mm-dd, inclusive)
+    // Changed 2026-11-05 IST by Pranay: '__none__' = patients with no Health Partner (unassigned filter)
+    if(filters.hp === '__none__') { if(p.rm?.health_partner) return false; }
+    else if(filters.hp && p.rm?.health_partner!==filters.hp) return false;
+    if(filters.dateFrom || filters.dateTo) { // Added 2026-11-02 IST by Pranay: purchase date range (ISO yyyy-mm-dd, inclusive)
       const d = p.seed.plan_purchase_date || '';
       if(!d) return false;
       if(filters.dateFrom && d < filters.dateFrom) return false;
@@ -1051,7 +1092,8 @@ function renderSales() {
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(dropdowns.durations,null,'All Durations')}</select>
       <select class="filter-sel" onchange="renderSalesTable()">${optHtml(['Active','Expired','Unknown'],null,'All Plan Status')}</select>
-      ${purchaseDateFilterHtml('sales','renderSalesTable')}
+      ${purchaseDateFilterHtml('sales','renderSalesTable')}<!-- Added 2026-11-02 IST by Pranay: purchase date filter -->
+
       ${canEdit('seed')?'<button class="btn btn-primary" onclick="openSalesAdd()" style="margin-left:auto">+ Add new patient</button>':''}
       ${getRole()==='admin'?'<button class="btn btn-ghost" onclick="document.getElementById(\'sales-csv-input\').click()" style="margin-left:8px">⬆ Upload Sales CSV</button><input type="file" id="sales-csv-input" accept=".csv" style="display:none" onchange="uploadSalesCSV(this)">':''}
       <div class="kpi-strip">
@@ -1083,7 +1125,8 @@ async function uploadSalesCSV(input) {
     input.value = '';
     return;
   }
-  if (!confirm(`Upload "${f.name}"?\n\nNew patients (matched by name + phone + purchase date) will be added. Existing patients will be skipped and never modified.`)) {
+  // Changed 2026-11-05 IST by Pranay: confirm text now explains that new patients get a Health Partner automatically
+  if (!confirm(`Upload "${f.name}"?\n\nNew patients (matched by name + phone + purchase date) will be added and each gets a Health Partner automatically (the active HP with the fewest active-plan patients). Existing patients will be skipped and never modified.`)) {
     input.value = '';
     return;
   }
@@ -1115,7 +1158,12 @@ async function uploadSalesCSV(input) {
     if (!res.ok) { alert('Upload failed: ' + (data.detail || res.status)); input.value=''; return; }
     let msg = `Sales CSV processed:\n\n`
       + `✓ Added: ${data.added} new patient(s)\n`
-      + (data.hp_assigned != null ? `✓ Health Partner auto-assigned: ${data.hp_assigned}\n` : '')
+      // Changed 2026-11-05 IST by Pranay: per-HP breakdown + count left unassigned (e.g. plan already expired)
+      + (data.hp_assigned != null ? `✓ Health Partner auto-assigned: ${data.hp_assigned}`
+          + (data.hp_breakdown && Object.keys(data.hp_breakdown).length
+              ? ' (' + Object.entries(data.hp_breakdown).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`${n} +${c}`).join(', ') + ')'
+              : '') + '\n' : '')
+      + (data.hp_not_assigned > 0 ? `• Added without a Health Partner (plan already expired, or no active HP): ${data.hp_not_assigned}\n` : '')
       + `• Skipped (already exist): ${data.skipped_existing}\n`
       + `• Skipped (incomplete rows): ${data.skipped_incomplete}\n`;
     if (data.error_count > 0) {
@@ -1143,7 +1191,7 @@ function renderSalesTable() {
   const dur = sels[1]?.value||'';
   const ps = sels[2]?.value||''; // Plan status filter — Added 2026-05-06
   // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  const dr = getPurchaseDateRange('sales');
+  const dr = getPurchaseDateRange('sales'); // Added 2026-11-02 IST by Pranay: purchase date range (also passed to filterPatients below)
   maybeResetPage('sales', [search,cond,dur,ps,dr.dateFrom,dr.dateTo].join('|'));
   const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
   const filtered = filterPatients(sorted, {search, condition:cond, duration:dur, planStatus:ps||null, ...dr});
@@ -1302,15 +1350,20 @@ function renderRM() {
       <input class="search" placeholder="Search patient..." oninput="debouncedRenderRM()">
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.conditions,null,'All Conditions')}</select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.durations,null,'All Durations')}</select>
-      <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.health_partners,null,'All HP')}</select>
+      <!-- Changed 2026-11-05 IST by Pranay: added "No HP (unassigned)" option to the HP filter -->
+      <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.health_partners,null,'All HP')}<option value="__none__">No HP (unassigned)</option></select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Yes','No'],null,'All WC Status')}</select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
-      ${purchaseDateFilterHtml('rm','renderRMTable')}
+      ${purchaseDateFilterHtml('rm','renderRMTable')}<!-- Added 2026-11-02 IST by Pranay: purchase date filter -->
       <div class="kpi-strip">
         <span class="kpi kpi-green" id="rm-kpi-wcdone">WC Done: 0</span>
         <span class="kpi kpi-amber" id="rm-kpi-pending">Pending: 0</span>
+        <!-- Added 2026-11-05 IST by Pranay: Unassigned counter; click to show patients with no HP -->
+        <span class="kpi kpi-red kpi-click" id="rm-kpi-unassigned" title="Patients with no Health Partner (click to filter)" onclick="setRmHpFilter('__none__')">Unassigned: 0</span>
       </div>
     </div>
+    <!-- Added 2026-11-05 IST by Pranay: HP workload strip (filled by renderHpLoadStrip) -->
+    <div class="hp-load-strip" id="rm-hp-load"></div>
     <div class="main-area"><div class="table-area" id="rm-table"></div><div class="side-panel" id="sp-rm"></div></div>`;
   renderRMTable();
 }
@@ -1321,7 +1374,7 @@ function renderRMTable() {
   const search = document.querySelector('#tab-rm .search')?.value||'';
   const planStatusFilter = sels[4]?.value || null;
   // Reset to page 1 on any filter change — Added 2026-05-14 IST
-  const dr = getPurchaseDateRange('rm');
+  const dr = getPurchaseDateRange('rm'); // Added 2026-11-02 IST by Pranay: purchase date range (also passed to filterPatients below)
   maybeResetPage('rm', [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,sels[3]?.value,planStatusFilter,dr.dateFrom,dr.dateTo].join('|'));
   // Sort by purchase date descending (newest first), same as Sales tab — Added 2026-05-12
   const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
@@ -1337,6 +1390,10 @@ function renderRMTable() {
   const kpiPending = document.getElementById('rm-kpi-pending');
   if(kpiDone) kpiDone.textContent = `WC Done: ${wcd}`;
   if(kpiPending) kpiPending.textContent = `Pending: ${wcp}`;
+  // Added 2026-11-05 IST by Pranay: Unassigned counter follows the same Plan Status scope as the other pills
+  const kpiUnassigned = document.getElementById('rm-kpi-unassigned');
+  if(kpiUnassigned) kpiUnassigned.textContent = `Unassigned: ${pillScope.filter(p=>!p.rm?.health_partner).length}`;
+  renderHpLoadStrip(); // Added 2026-11-05 IST by Pranay: refresh HP workload strip
 
   // Pagination — Added 2026-05-14 IST
   const pg = paginate(filtered, 'rm');
@@ -2513,7 +2570,67 @@ function openTaskPatient(patientId, section) {
   }, 200);
 }
 
+// Added 2026-11-05 IST by Pranay: dashboard purchase-date range. State is kept here so the range survives re-renders.
+// Empty from/to = all time. Cards and charts are computed from the patients whose plan_purchase_date falls in the range.
+let dashRange = {from:'', to:''};
+function setDashRange() {
+  dashRange = {from: document.getElementById('dash-from')?.value || '',
+               to:   document.getElementById('dash-to')?.value || ''};
+  renderDashboard();
+}
+// Presets use the browser's local date (en-CA gives YYYY-MM-DD).
+function setDashPreset(key) {
+  const fmt = d => d.toLocaleDateString('en-CA');
+  const t = new Date();
+  if(key === 'today') dashRange = {from: fmt(t), to: fmt(t)};
+  else if(key === '7d') { const s = new Date(t); s.setDate(t.getDate()-6); dashRange = {from: fmt(s), to: fmt(t)}; }
+  else if(key === 'month') dashRange = {from: fmt(new Date(t.getFullYear(), t.getMonth(), 1)), to: fmt(t)};
+  else if(key === 'lastmonth') dashRange = {from: fmt(new Date(t.getFullYear(), t.getMonth()-1, 1)), to: fmt(new Date(t.getFullYear(), t.getMonth(), 0))};
+  else dashRange = {from:'', to:''}; // 'all'
+  renderDashboard();
+}
+// Added 2026-11-05 IST by Pranay: dashboard click-through. navAttr() makes an element clickable; dashNav() opens the target tab
+// with the filters in the descriptor applied. Descriptor keys: tab, condition, duration, plan, hp, wc, status, coach,
+// range:true (carry the dashboard purchase-date range; only Sales and RM tabs have date inputs).
+// Dropdown indexes below mirror the filter bars of each tab (see renderSales / renderRM / renderCoachTab).
+function navAttr(o) {
+  const j = JSON.stringify(o).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  return ' data-nav="' + j + '" onclick="dashNav(this)"';
+}
+function dashNav(el) {
+  let o; try { o = JSON.parse(el.dataset.nav); } catch(e) { return; }
+  const tab = o.tab;
+  switchTab(tab); // fresh render of the target tab, so older filters are cleared first
+  if(currentTab !== tab) return; // this role cannot open that tab - stay where switchTab put us
+  const coachIdx = {status:0, coach:1, condition:2, plan:3};
+  const idx = {sales:{condition:0, duration:1, plan:2}, rm:{condition:0, duration:1, hp:2, wc:3, plan:4},
+               diet:coachIdx, wellness:coachIdx, physio:coachIdx}[tab];
+  if(!idx) return;
+  const sels = document.querySelectorAll('#tab-' + tab + ' .filter-sel');
+  Object.entries(idx).forEach(([k, i]) => { if(o[k] != null && sels[i]) sels[i].value = o[k]; });
+  if(o.range && (tab === 'sales' || tab === 'rm')) {
+    let {from, to} = dashRange;
+    if(from && to && from > to) [from, to] = [to, from];
+    const f = document.querySelector('#tab-' + tab + ' .date-from'), t = document.querySelector('#tab-' + tab + ' .date-to');
+    if(f) f.value = from; if(t) t.value = to;
+  }
+  if(tab === 'sales') renderSalesTable(); else if(tab === 'rm') renderRMTable(); else renderCoachTable(tab);
+}
 function renderDashboard() {
+  // Wrapper: filter patients by purchase date, then draw the unchanged dashboard body on that subset
+  let {from, to} = dashRange;
+  if(from && to && from > to) [from, to] = [to, from]; // tolerate reversed dates
+  const scoped = (from || to)
+    ? patients.filter(p => {
+        const d = p.seed?.plan_purchase_date || '';
+        return d && (!from || d >= from) && (!to || d <= to);
+      })
+    : patients;
+  renderDashboardBody(scoped, patients.length);
+}
+// Changed 2026-11-05 IST by Pranay: this was renderDashboard(). It now takes the (date-filtered) list as a parameter named
+// `patients`, which intentionally shadows the global so every existing calculation below works on the selected range unchanged.
+function renderDashboardBody(patients, allCount) {
   const c = document.getElementById('tab-dashboard');
   const total = patients.length;
   const wcd = patients.filter(p=>p.rm?.welcome_call_done==='Yes').length;
@@ -2559,7 +2676,9 @@ function renderDashboard() {
   let condBars = Object.entries(conds).sort((a,b)=>b[1]-a[1]).map(([k,v])=>{
     const pct = Math.round(v/maxCond*100);
     const color = k==='Diabetes'?'var(--purple)':k==='Cholesterol'?'var(--acc)':'var(--green)';
-    return '<div class="bar-row"><span class="bar-label">'+esc(k)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div><span class="bar-val">'+v+'</span></div>';
+    // Changed 2026-11-05 IST by Pranay: condition rows open the Sales tab filtered to that condition (+ date range)
+    const link = (dropdowns.conditions||[]).includes(k) ? ' dash-link"' + navAttr({tab:'sales', condition:k, range:true}) + ' title="Open the Sales tab filtered to ' + esc(k) : '';
+    return '<div class="bar-row' + link + '"><span class="bar-label">'+esc(k)+'</span><div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div><span class="bar-val">'+v+'</span></div>';
   }).join('');
 
   // Module status mini bars — Added 2026-05-05
@@ -2605,7 +2724,9 @@ function renderDashboard() {
         s.id ? !staffList.some(x=>x.id===s.id && x.active) : !staffList.some(x=>x.name===s.name && x.active)
       );
       const nameHtml = isStaffInactive ? '<span style="text-decoration:line-through;opacity:0.5">' + esc(s.name) + '</span> <span style="font-size:10px;color:var(--red)">(inactive)</span>' : esc(s.name);
-      return '<div class="bar-row"'+(isStaffInactive?' style="opacity:0.6"':'')+'><span class="bar-label">' + nameHtml + '</span>'
+      // Changed 2026-11-05 IST by Pranay: active coaches open their module tab filtered to that coach (module tabs have no date filter)
+      const canNav = !isStaffInactive && (dropdowns[mod+'_coaches']||[]).includes(s.name);
+      return '<div class="bar-row' + (canNav ? ' dash-link"' + navAttr({tab:mod, coach:s.name}) + ' title="Open the ' + esc(mod) + ' tab filtered to this coach (all dates)"' : '"') + (isStaffInactive?' style="opacity:0.6"':'')+'><span class="bar-label">' + nameHtml + '</span>'
         + '<div class="bar-track" style="width:' + w + '%">'
         + '<div style="display:flex;height:100%">'
         + (aP ? '<div style="width:'+aP+'%;background:var(--green)"></div>' : '')
@@ -2616,16 +2737,133 @@ function renderDashboard() {
     }).join('');
   }
 
+  // Added 2026-11-05 IST by Pranay: Health Partner panel. One row per active HP (plus any deactivated HP that still has patients
+  // in the selected range) showing ACTIVE-plan patients split into welcome call done (green) / pending (amber), plus an
+  // "Unassigned" row (red). Follows the dashboard date range because `patients` is the range-filtered list here.
+  function hpBars() {
+    const rows = {};
+    staffList.filter(s => s.type === 'health_partner' && s.active).forEach(s => {
+      rows[s.name] = {name: s.name, inactive: false, active: 0, done: 0, pending: 0, all: 0};
+    });
+    const un = {active: 0, all: 0};
+    patients.forEach(p => {
+      const hp = p.rm?.health_partner;
+      const activePlan = isActivePlanStrict(p);
+      if(!hp) { un.all++; if(activePlan) un.active++; return; }
+      if(!rows[hp]) rows[hp] = {name: hp, inactive: true, active: 0, done: 0, pending: 0, all: 0};
+      const r = rows[hp]; r.all++;
+      if(activePlan) { r.active++; if(p.rm?.welcome_call_done === 'Yes') r.done++; else r.pending++; }
+    });
+    const list = Object.values(rows).filter(r => !r.inactive || r.all > 0).sort((a,b) => b.active - a.active || a.name.localeCompare(b.name));
+    if(!list.length && !un.all) return '<div style="font-size:12px;color:var(--tx3)">No data</div>';
+    const mx = Math.max(...list.map(r => r.active), un.active, 1);
+    const valStyle = 'min-width:190px;font-size:11px;text-align:left';
+    let h = list.map(r => {
+      const w = Math.round(r.active/mx*100);
+      const dP = r.active ? Math.round(r.done/r.active*100) : 0;
+      const nameHtml = r.inactive
+        ? '<span style="text-decoration:line-through;opacity:0.5">' + esc(r.name) + '</span> <span style="font-size:10px;color:var(--red)">(inactive)</span>'
+        : esc(r.name);
+      // Changed 2026-11-05 IST by Pranay: active HPs open the RM tab filtered to that HP, active plans, same date range
+      const canNav = !r.inactive && (dropdowns.health_partners||[]).includes(r.name);
+      return '<div class="bar-row' + (canNav ? ' dash-link"' + navAttr({tab:'rm', hp:r.name, plan:'Active', range:true}) : '"') + (r.inactive ? ' style="opacity:0.6"' : '') + ' title="' + esc(r.name) + ': ' + r.all + ' patients in range, ' + r.active + ' with an active plan' + (canNav ? ' - click to open in the RM tab' : '') + '"><span class="bar-label" style="width:140px">' + nameHtml + '</span>'
+        + '<div style="flex:1;min-width:0"><div class="bar-track" style="width:' + w + '%;flex:none;min-width:' + (r.active ? '4px' : '0') + '"><div style="display:flex;height:100%">'
+        + (dP ? '<div style="width:' + dP + '%;background:var(--green)"></div>' : '')
+        + (r.pending ? '<div style="width:' + (100-dP) + '%;background:var(--amber)"></div>' : '')
+        + '</div></div></div>'
+        + '<span class="bar-val" style="' + valStyle + '">' + r.active + ' active · WC done ' + r.done + ' / pending ' + r.pending + '</span></div>';
+    }).join('');
+    if(un.all) {
+      h += '<div class="bar-row dash-link"' + navAttr({tab:'rm', hp:'__none__', plan:'Active', range:true}) + ' title="Patients with no Health Partner: ' + un.all + ' in range, ' + un.active + ' with an active plan - click to open in the RM tab"><span class="bar-label" style="width:140px;color:var(--red-tx)">Unassigned</span>'
+        + '<div style="flex:1;min-width:0"><div class="bar-track" style="width:' + Math.round(un.active/mx*100) + '%;flex:none;min-width:' + (un.active ? '4px' : '0') + '"><div style="height:100%;background:var(--red)"></div></div></div>'
+        + '<span class="bar-val" style="' + valStyle + ';color:var(--red-tx)">' + un.active + ' active · ' + un.all + ' in total</span></div>';
+    }
+    return h;
+  }
+
+  // Added 2026-11-05 IST by Pranay: patient funnel. Population = ACTIVE-plan patients in the selected range.
+  // Each stage is a subset of the previous one, so the strip shows exactly where patients drop off:
+  //   1 Active plans -> 2 Welcome call done -> 3 >=1 assessment completed -> 4 Assessment completed in all 3 modules
+  // "Assessment completed" for a module = status contains "assessment completed" (NOT "Welcome Call Completed")
+  // OR any month has assessment_done = yes (patients who moved on to a "pending" status still count).
+  function funnelHtml() {
+    const modsAll = ['diet','wellness','physio'];
+    const done = (p, m) =>
+      (p[m]?.status||'').toLowerCase().includes('assessment completed')
+      || (p[m]?.months||[]).some(x => String(x.assessment_done||'').toLowerCase() === 'yes');
+    const isInactive = (p, m) => (p[m]?.status||'').toLowerCase().includes('inactive');
+    const s1 = patients.filter(p => isActivePlanStrict(p));
+    const s2 = s1.filter(p => p.rm?.welcome_call_done === 'Yes');
+    const s3 = s2.filter(p => modsAll.some(m => done(p, m)));
+    const s4 = s2.filter(p => modsAll.every(m => done(p, m)));
+    const inactiveAny = s1.filter(p => modsAll.some(m => isInactive(p, m))).length;
+    const doneNoWc = s1.filter(p => p.rm?.welcome_call_done !== 'Yes' && modsAll.some(m => done(p, m))).length;
+    const expired = patients.length - s1.length;
+    const stages = [
+      // nav = click-through target (steps 3 and 4 have no matching table filter, so they are not clickable)
+      {label:'Active-plan patients', n:s1.length, color:'var(--acc)', tip:'Patients in the range whose plan has not expired. Click to open them in the RM tab.', nav:{tab:'rm', plan:'Active', range:true}},
+      {label:'Welcome call done', n:s2.length, color:'var(--green)', tip:'Welcome call marked Yes. Click to open them in the RM tab.', nav:{tab:'rm', plan:'Active', wc:'Yes', range:true}},
+      {label:'At least 1 assessment completed', n:s3.length, color:'var(--green)', tip:'Welcome call done AND an assessment completed in any module'},
+      {label:'Completed in all 3 modules', n:s4.length, color:'var(--green)', tip:'Welcome call done AND an assessment completed in Nutritionist, Psychologist and Physiotherapist'}
+    ];
+    const base = Math.max(s1.length, 1);
+    const cells = stages.map((s, i) => {
+      const prev = i ? stages[i-1].n : null;
+      const pctPrev = prev ? Math.round(s.n/prev*100) : null;
+      const drop = prev != null ? prev - s.n : null;
+      return '<div style="flex:1;min-width:150px"' + (s.nav ? ' class="dash-link"' + navAttr(s.nav) : '') + ' title="' + esc(s.tip) + '">'
+        + '<div style="font-size:12px;color:var(--tx2)">' + (i+1) + '. ' + esc(s.label) + '</div>'
+        + '<div style="font-size:26px;font-weight:700;color:' + s.color + '">' + s.n + '</div>'
+        + '<div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin:4px 0"><div style="height:100%;width:' + Math.round(s.n/base*100) + '%;background:' + s.color + '"></div></div>'
+        + '<div style="font-size:11px;color:var(--tx3)">'
+        + (i ? pctPrev + '% of previous · <span style="color:var(--red-tx)">−' + drop + ' drop-off</span>' : '100% (starting point)')
+        + '</div></div>';
+    }).join('<div style="align-self:center;color:var(--tx3);font-size:18px">›</div>');
+    const notes = [];
+    if(inactiveAny) notes.push('<span style="color:var(--red-tx)">' + inactiveAny + ' inactive in at least one module</span>');
+    if(doneNoWc) notes.push(doneNoWc + ' have a completed assessment but the welcome call is not marked Yes (not counted from stage 2 onward)');
+    if(expired) notes.push(expired + ' expired-plan patient(s) in this range are not part of the funnel');
+    return '<div style="display:flex;gap:10px;flex-wrap:wrap">' + cells + '</div>'
+      + (notes.length ? '<div style="font-size:11px;color:var(--tx3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">' + notes.join(' · ') + '</div>' : '');
+  }
+
+  // Added 2026-11-05 IST by Pranay: date range bar shown at the top of the dashboard
+  const rangeActive = !!(dashRange.from || dashRange.to);
+  const rangeTxt = rangeActive
+    ? `Showing ${total} of ${allCount} patients · purchased ${dashRange.from || '…'} to ${dashRange.to || '…'}`
+    : `Showing all ${allCount} patients (all time)`;
+  const presetBtn = (k, label) => `<button class="btn btn-ghost btn-sm" onclick="setDashPreset('${k}')">${label}</button>`;
   c.innerHTML = `
+    <div class="filter-bar">
+      <span class="date-f-wrap">Purchased
+        <input type="date" class="date-f" id="dash-from" value="${dashRange.from}" title="Purchase date from" onchange="setDashRange()">
+        to <input type="date" class="date-f" id="dash-to" value="${dashRange.to}" title="Purchase date to" onchange="setDashRange()">
+      </span>
+      ${presetBtn('today','Today')}${presetBtn('7d','Last 7 days')}${presetBtn('month','This month')}${presetBtn('lastmonth','Last month')}${presetBtn('all','All time')}
+      <span style="margin-left:auto;font-size:12px;color:${rangeActive?'var(--acc-tx)':'var(--tx2)'}">${rangeTxt}</span>
+    </div>
     <div class="dash-grid">
-      <div class="dash-card"><div class="label">Total patients</div><div class="val">${total}</div></div>
-      <div class="dash-card"><div class="label">WC completion rate</div><div class="val" style="color:var(--green)">${total?Math.round(wcd/total*100):0}%</div><div class="sub">${wcd} / ${total}</div></div>
-      <div class="dash-card"><div class="label">Active assessment</div><div class="val" style="color:var(--green)">${overallActive}</div><div class="sub">of ${activePlanPatients.length} active plans</div></div>
-      <div class="dash-card"><div class="label">Inactive assessment</div><div class="val" style="color:var(--red)">${overallInactive}</div><div class="sub">of ${activePlanPatients.length} active plans</div></div>
+      <!-- Changed 2026-11-05 IST by Pranay: Total patients and WC completion rate cards are clickable (open Sales / RM with the date range) -->
+      <div class="dash-card dash-link"${navAttr({tab:'sales', range:true})} title="Open the Sales tab for this range"><div class="label">Total patients</div><div class="val">${total}</div></div>
+      <div class="dash-card dash-link"${navAttr({tab:'rm', wc:'Yes', range:true})} title="Open the RM tab: welcome call done, this range"><div class="label">WC completion rate</div><div class="val" style="color:var(--green)">${total?Math.round(wcd/total*100):0}%</div><div class="sub">${wcd} / ${total}</div></div>
+      <!-- Changed 2026-11-05 IST by Pranay: KPI relabelled so it is not confused with the per-module "Active assessment"
+           in "Status by module". Counting logic is unchanged; only labels and sub-text changed. -->
+      <div class="dash-card" title="Each patient counted once: welcome call done AND not inactive in any module. Does not check whether an assessment is completed."><div class="label">Active patients (WC done, none inactive)</div><div class="val" style="color:var(--green)">${overallActive}</div><div class="sub">of ${activePlanPatients.length} active plans · each patient counted once</div></div>
+      <div class="dash-card" title="Each patient counted once: inactive in at least one module."><div class="label">Inactive patients (any module)</div><div class="val" style="color:var(--red)">${overallInactive}</div><div class="sub">of ${activePlanPatients.length} active plans · each patient counted once</div></div>
+    </div>
+    <!-- Added 2026-11-05 IST by Pranay: patient funnel (active plans -> welcome call -> assessment completed -> all 3 modules) -->
+    <div style="padding:0 24px 24px">
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Patient funnel</div>
+        <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">Active-plan patients in the selected range. Each step is a subset of the one before, so the drop-offs show where patients stall.</div>
+        ${funnelHtml()}
+      </div>
     </div>
     <div class="dash-row">
       <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Condition distribution</div>${condBars}</div>
-      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Status by module</div>
+      <!-- Changed 2026-11-05 IST by Pranay: added note that these counts are per module (a patient can appear in more than one),
+           which is why they differ from the "Active patients" KPI above. Counting logic unchanged. -->
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Status by module</div>
+        <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">Counted per module among active plans - a patient can appear in more than one module, and "active" here means the assessment is completed.</div>
         ${statusBars('Nutritionist', diet)}
         ${statusBars('Psychologist', well)}
         ${statusBars('Physiotherapist', phys)}
@@ -2640,6 +2878,13 @@ function renderDashboard() {
       <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Nutritionist Assessments</div>${coachBars('diet','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
       <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Psychologist Assessments</div>${coachBars('wellness','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
       <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:12px">Physiotherapist Assessments</div>${coachBars('physio','coach')}<div style="font-size:10px;color:var(--tx3);margin-top:8px">Values: active assessment / pending assessment / inactive assessment</div></div>
+    </div>
+    <!-- Added 2026-11-05 IST by Pranay: Health Partner panel (active-plan patients per HP, welcome call progress, unassigned) -->
+    <div style="padding:0 24px 24px">
+      <div class="dash-card"><div style="font-size:14px;font-weight:600;margin-bottom:4px">Health Partners</div>
+        <div style="font-size:11px;color:var(--tx3);margin-bottom:12px">Active-plan patients per Health Partner in the selected range. Bar length = active plans; <span style="color:var(--green-tx)">green</span> = welcome call done, <span style="color:var(--amber-tx)">amber</span> = welcome call pending. New patients go to the HP with the fewest active-plan patients.</div>
+        ${hpBars()}
+      </div>
     </div>`;
 }
 
