@@ -969,6 +969,11 @@ function setRmHpFilter(val) {
   const sel = document.querySelectorAll('#tab-rm .filter-sel')[2];
   if(sel) { sel.value = val; renderRMTable(); }
 }
+// Added 2026-11-11 IST by Pranay: set the RM "WC Attempts" filter (used by the "No attempts" pill); '' = all
+function setRmWcAttFilter(val) {
+  const sel = document.getElementById('rm-wcatt');
+  if(sel) { sel.value = val; renderRMTable(); }
+}
 function filterPatients(list, filters) {
   return list.filter(p => {
     if(filters.search) {
@@ -999,6 +1004,12 @@ function filterPatients(list, filters) {
     if(filters.coach && filters.section) {
       const sec = p[filters.section];
       if(sec?.coach!==filters.coach) return false;
+    }
+    // Added 2026-11-11 IST by Pranay: WC Attempts filter. Yes = at least one welcome call attempt logged, No = none logged
+    if(filters.wcAtt) {
+      const n = (p.rm?.wc_attempts||[]).length;
+      if(filters.wcAtt==='Yes' && n===0) return false;
+      if(filters.wcAtt==='No' && n>0) return false;
     }
     // Plan status filter — Added 2026-05-06
     if(filters.planStatus && planStatus(p) !== filters.planStatus) return false;
@@ -1354,12 +1365,16 @@ function renderRM() {
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(dropdowns.health_partners,null,'All HP')}<option value="__none__">No HP (unassigned)</option></select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Yes','No'],null,'All WC Status')}</select>
       <select class="filter-sel" onchange="renderRMTable()">${optHtml(['Active','Expired'],null,'All Plan Status')}</select>
+      <!-- Added 2026-11-11 IST by Pranay: WC Attempts filter (Yes = attempts logged, No = none). Kept AFTER Plan Status so existing filter-sel indexes (used by dashboard click-through) do not shift; read by id -->
+      <select class="filter-sel" id="rm-wcatt" onchange="renderRMTable()"><option value="">All WC Attempts</option><option value="Yes">Attempts: Yes</option><option value="No">Attempts: No</option></select>
       ${purchaseDateFilterHtml('rm','renderRMTable')}<!-- Added 2026-11-02 IST by Pranay: purchase date filter -->
       <div class="kpi-strip">
         <span class="kpi kpi-green" id="rm-kpi-wcdone">WC Done: 0</span>
         <span class="kpi kpi-amber" id="rm-kpi-pending">Pending: 0</span>
         <!-- Added 2026-11-05 IST by Pranay: Unassigned counter; click to show patients with no HP -->
         <span class="kpi kpi-red kpi-click" id="rm-kpi-unassigned" title="Patients with no Health Partner (click to filter)" onclick="setRmHpFilter('__none__')">Unassigned: 0</span>
+        <!-- Added 2026-11-11 IST by Pranay: patients with no WC attempt logged; click to filter -->
+        <span class="kpi kpi-amber kpi-click" id="rm-kpi-noatt" title="Patients with no welcome call attempt logged (click to filter)" onclick="setRmWcAttFilter('No')">No attempts: 0</span>
       </div>
     </div>
     <!-- Added 2026-11-05 IST by Pranay: HP workload strip (filled by renderHpLoadStrip) -->
@@ -1373,12 +1388,13 @@ function renderRMTable() {
   const sels = document.querySelectorAll('#tab-rm .filter-sel');
   const search = document.querySelector('#tab-rm .search')?.value||'';
   const planStatusFilter = sels[4]?.value || null;
+  const wcAttFilter = document.getElementById('rm-wcatt')?.value || null; // Added 2026-11-11 IST by Pranay: WC Attempts filter
   // Reset to page 1 on any filter change — Added 2026-05-14 IST
   const dr = getPurchaseDateRange('rm'); // Added 2026-11-02 IST by Pranay: purchase date range (also passed to filterPatients below)
-  maybeResetPage('rm', [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,sels[3]?.value,planStatusFilter,dr.dateFrom,dr.dateTo].join('|'));
+  maybeResetPage('rm', [search,sels[0]?.value,sels[1]?.value,sels[2]?.value,sels[3]?.value,planStatusFilter,wcAttFilter,dr.dateFrom,dr.dateTo].join('|'));
   // Sort by purchase date descending (newest first), same as Sales tab — Added 2026-05-12
   const sorted = [...patients].sort((a,b)=>(b.seed.plan_purchase_date||'').localeCompare(a.seed.plan_purchase_date||''));
-  const filtered = filterPatients(sorted,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:planStatusFilter,...dr});
+  const filtered = filterPatients(sorted,{search,condition:sels[0]?.value,duration:sels[1]?.value,hp:sels[2]?.value,wc:sels[3]?.value,planStatus:planStatusFilter,wcAtt:wcAttFilter,...dr});
 
   // KPI pills react ONLY to Plan Status filter, not search/condition/HP/WC — Changed 2026-05-12
   const pillScope = planStatusFilter
@@ -1393,6 +1409,9 @@ function renderRMTable() {
   // Added 2026-11-05 IST by Pranay: Unassigned counter follows the same Plan Status scope as the other pills
   const kpiUnassigned = document.getElementById('rm-kpi-unassigned');
   if(kpiUnassigned) kpiUnassigned.textContent = `Unassigned: ${pillScope.filter(p=>!p.rm?.health_partner).length}`;
+  // Added 2026-11-11 IST by Pranay: "No attempts" counter follows the same Plan Status scope as the other pills
+  const kpiNoAtt = document.getElementById('rm-kpi-noatt');
+  if(kpiNoAtt) kpiNoAtt.textContent = `No attempts: ${pillScope.filter(p=>!(p.rm?.wc_attempts||[]).length).length}`;
   renderHpLoadStrip(); // Added 2026-11-05 IST by Pranay: refresh HP workload strip
 
   // Pagination — Added 2026-05-14 IST
