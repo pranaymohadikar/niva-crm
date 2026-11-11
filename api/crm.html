@@ -185,6 +185,19 @@ table.dt tr.sel td{background:#DBEAFE;border-bottom-color:#BFDBFE}
 .v360-mod-hd .mod-title{font-size:13px;font-weight:600}
 .v360-dots{display:flex;gap:3px;align-items:center}
 .v360-dots .dot{width:10px;height:10px}
+/* Added 2026-11-11 IST by Pranay: patient Timeline (360 view) */
+.tl-stages{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.tl-stage{flex:1;min-width:84px;padding:5px 6px;border-radius:var(--radius);border:1px solid var(--border);font-size:10px;color:var(--tx3);text-align:center;line-height:1.3}
+.tl-stage.on{background:var(--green-bg);border-color:var(--green);color:var(--green-tx)}
+.tl-stage b{display:block;font-size:11px}
+.tl-list{position:relative;margin-left:6px;padding-left:16px;border-left:2px solid var(--border)}
+.tl-ev{position:relative;padding:0 0 10px 0;font-size:12px;line-height:1.4}
+.tl-ev::before{content:'';position:absolute;left:-23px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--tl-c,#6B7280);border:2px solid #fff;box-shadow:0 0 0 1px var(--tl-c,#6B7280)}
+.tl-date{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3)}
+.tl-gap{color:var(--amber-tx);background:var(--amber-bg);border-radius:8px;padding:0 5px;margin-left:4px;font-size:10px}
+.tl-t{font-weight:600;color:var(--tx)}
+.tl-d{color:var(--tx2);font-size:11px;word-break:break-word}
+.tl-nodate{margin-top:8px;font-size:11px;color:var(--tx3)}
 .v360-notes{font-size:11px;color:var(--tx2);margin-top:4px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .v360-jump{display:flex;flex-wrap:wrap;gap:6px}
 .v360-jump button{flex:1;min-width:100px}
@@ -2921,6 +2934,118 @@ function open360(id, panelId) {
   _360_returnTab = currentTab;
   const sp = document.getElementById(panelId);
   sp.innerHTML = render360View(p);
+  loadPatientTimeline(p); // Added 2026-11-11 IST by Pranay: fill the Timeline section
+}
+
+// ═══════════════════════════════════════════════
+// PATIENT TIMELINE — Added 2026-11-11 IST by Pranay
+// Oldest first, sale -> consultation. Built from data already on the patient plus the
+// per-patient audit events (HP / coach assignment, WC done, status changes). Read-only.
+// ═══════════════════════════════════════════════
+function tlDate(s) { // -> 'YYYY-MM-DD' or null (accepts ISO and dd/mm/yyyy, dd-mm-yyyy)
+  if(!s) return null; s = String(s).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return +m[2]>=1 && +m[2]<=12 && +m[3]>=1 && +m[3]<=31 ? m[0] : null;
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
+  if(m && +m[2]>=1 && +m[2]<=12 && +m[1]>=1 && +m[1]<=31) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return null;
+}
+function tlDays(a, b) { // whole days from a to b (both YYYY-MM-DD)
+  const f = s => Date.UTC(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10));
+  return Math.round((f(b)-f(a))/86400000);
+}
+function buildTimelineEvents(p, aud) {
+  const ev = [];
+  const s = p.seed, rm = p.rm || {};
+  const MOD = {diet:'Nutritionist', wellness:'Psychologist', physio:'Physiotherapist'};
+  const COL = {sales:'#2563EB', rm:'#D97706', diet:'#059669', wellness:'#7C3AED', physio:'#DB2777', note:'#6B7280', end:'#DC2626'};
+  const add = (raw, cat, title, detail, opt) => ev.push({date: tlDate(raw), time: (opt&&opt.time)||'', cat, title, detail: detail||'', ms: opt&&opt.ms, ts: opt&&opt.ts});
+  const events = (aud && aud.events) || [];
+  const tsOf = e => e.timestamp || '';
+
+  // Sale + record created
+  add(s.plan_purchase_date, 'sales', 'Plan purchased', [s.plan_duration, s.plan_price?'₹'+s.plan_price:'', s.isa_owner?'ISA: '+s.isa_owner:'', s.mode_of_payment].filter(Boolean).join(' · '), {ms:'sale'});
+  const created = events.find(e=>e.action==='create');
+  if(aud && (created || aud.created_at)) add(created ? tsOf(created) : aud.created_at, 'sales', 'Added to CRM', 'by '+(created?.user || aud.created_by || 'unknown'));
+
+  // Health Partner assignment (audit)
+  const hpEv = events.filter(e=>e.field==='health_partner' && e.new_value);
+  hpEv.forEach(e => add(tsOf(e), 'rm', 'Health Partner assigned: '+e.new_value, (e.action==='auto_assign'?'auto-assigned':'by '+e.user)+(e.old_value?' (was '+e.old_value+')':''), {ms:'hp'}));
+  if(!hpEv.length && rm.health_partner) add(null, 'rm', 'Health Partner: '+rm.health_partner, 'assignment date not recorded', {ms:'hp'});
+
+  // Welcome call attempts + completion
+  (rm.wc_attempts||[]).forEach((a,i) => add(a.date, 'rm', 'Welcome call attempt '+(i+1), [a.time, a.remarks].filter(Boolean).join(' · '), {time:a.time||''}));
+  if(rm.welcome_call_done === 'Yes') {
+    const wcEv = events.find(e=>e.field==='welcome_call_done' && e.new_value==='Yes');
+    const d = tlDate(rm.welcome_call_completion_date) ? rm.welcome_call_completion_date : (wcEv ? tsOf(wcEv) : null);
+    add(d, 'rm', 'Welcome call completed', wcEv && !tlDate(rm.welcome_call_completion_date) ? 'marked by '+wcEv.user : '', {ms:'wc'});
+  }
+  if(rm.cs_call_date) add(rm.cs_call_date, 'note', 'CS escalation call', [rm.cs_agent, rm.cs_remarks].filter(Boolean).join(' · '));
+
+  // Coaches
+  ['diet','wellness','physio'].forEach(mod => {
+    const sec = p[mod] || {}, label = MOD[mod];
+    const cEv = events.filter(e=>e.section===mod && e.field==='coach' && e.new_value);
+    cEv.forEach(e => add(tsOf(e), mod, label+' coach assigned: '+e.new_value, 'by '+e.user, {ms:'coach'}));
+    if(!cEv.length && sec.coach) add(null, mod, label+' coach: '+sec.coach, 'assignment date not recorded', {ms:'coach'});
+    (sec.months||[]).forEach(m => {
+      (m.attempts||[]).forEach((a,i) => add(a.date, mod, label+' M'+m.month+' call attempt '+(i+1), [a.time, a.disposition].filter(Boolean).join(' · '), {time:a.time||''}));
+      if(m.assessment_done === 'Yes') add(m.assessment_date, mod, label+' M'+m.month+' consultation done', sec.coach?'with '+sec.coach:'', {ms:'consult'});
+      else if(m.assessment_done === 'No-Inactive') add(m.assessment_date, 'end', label+' M'+m.month+' marked inactive', '');
+      if(m.plan_date) add(m.plan_date, mod, label+' M'+m.month+' plan shared', m.plan_assigned||'');
+      if(m.exercise_plan_date) add(m.exercise_plan_date, mod, label+' M'+m.month+' exercise plan shared', m.exercise_plan_assigned||'');
+      if(m.followup_date) add(m.followup_date, mod, label+' M'+m.month+' follow-up', m.followup_done||'');
+      (m.followup_attempts||[]).forEach((a,i) => add(a.date, mod, label+' M'+m.month+' follow-up attempt '+(i+1), [a.time, a.comments].filter(Boolean).join(' · '), {time:a.time||''}));
+    });
+    events.filter(e=>e.section===mod && e.field==='status' && /inactive|plan ended/i.test(e.new_value||''))
+      .forEach(e => add(tsOf(e), 'end', label+' status: '+e.new_value, 'by '+e.user));
+  });
+
+  // Weekly follow-ups, comments, expiry
+  (p.weekly?.entries||[]).forEach(w => add(w.date, 'note', 'Weekly follow-up (week '+w.week+')', w.remarks||''));
+  (p.comments||[]).forEach(c => add(c.created_at, 'note', 'Comment by '+c.user, (c.text||'').slice(0,160)));
+  if(s.expiry_date) add(s.expiry_date, 'end', 'Plan expiry', '');
+
+  // Oldest first; dateless events go to the bottom group. Keep insertion order for ties.
+  ev.forEach((e,i)=>{ e.i=i; e.color=COL[e.cat]||COL.note; });
+  const dated = ev.filter(e=>e.date).sort((a,b)=> a.date<b.date?-1 : a.date>b.date?1 : (a.time<b.time?-1 : a.time>b.time?1 : a.i-b.i));
+  return {dated, undated: ev.filter(e=>!e.date)};
+}
+function renderTimelineHtml(p, aud, note) {
+  const {dated, undated} = buildTimelineEvents(p, aud);
+  // Stage bar: first date of each milestone
+  const first = k => { const d = dated.filter(e=>e.ms===k).map(e=>e.date).sort(); return d[0]||null; };
+  const sale = first('sale');
+  const has = k => dated.some(e=>e.ms===k) || undated.some(e=>e.ms===k);
+  const st = (k,label) => { const d = first(k);
+    const on = has(k);
+    const gap = d && sale ? ' · day '+tlDays(sale,d) : '';
+    return `<div class="tl-stage ${on?'on':''}"><b>${label}</b>${d?esc(d)+gap:(on?'date n/a':'pending')}</div>`; };
+  let h = `<div class="tl-stages">${st('sale','Sale')}${st('hp','HP assigned')}${st('wc','WC done')}${st('coach','Coach assigned')}${st('consult','1st consultation')}</div>`;
+  if(note) h += `<div class="tl-nodate">${esc(note)}</div>`;
+  let prev = null;
+  h += '<div class="tl-list">' + dated.map(e => {
+    const gap = prev && tlDays(prev,e.date) > 0 ? `<span class="tl-gap">+${tlDays(prev,e.date)}d</span>` : '';
+    prev = e.date;
+    return `<div class="tl-ev" style="--tl-c:${e.color}"><span class="tl-date">${esc(e.date)}${e.time?' '+esc(e.time):''}</span>${gap}<div class="tl-t">${esc(e.title)}</div>${e.detail?'<div class="tl-d">'+esc(e.detail)+'</div>':''}</div>`;
+  }).join('') + '</div>';
+  if(!dated.length) h += '<div class="tl-nodate">No dated events yet.</div>';
+  if(undated.length) h += '<div class="tl-nodate"><b>Date not recorded:</b><br>' + undated.map(e=>esc(e.title)+(e.detail?' ('+esc(e.detail)+')':'')).join('<br>') + '</div>';
+  h += '<div class="tl-nodate">“+Nd” = days since the previous event. Older patients may lack assignment dates because change history was not recorded then.</div>';
+  return h;
+}
+async function loadPatientTimeline(p) {
+  const el = document.getElementById('tl-body-'+p.id); if(!el) return;
+  el.innerHTML = renderTimelineHtml(p, null, 'Loading change history…'); // instant version from data already on screen
+  try {
+    const r = await fetch(API+'/api/patients/'+p.id+'/timeline-events');
+    if(!r.ok) throw new Error(await r.text());
+    const aud = await r.json();
+    const el2 = document.getElementById('tl-body-'+p.id); if(el2) el2.innerHTML = renderTimelineHtml(p, aud);
+  } catch(e) {
+    const el2 = document.getElementById('tl-body-'+p.id);
+    if(el2) el2.innerHTML = renderTimelineHtml(p, null, 'Change history unavailable — showing recorded dates only.');
+  }
 }
 
 function close360(id) {
@@ -3052,6 +3177,8 @@ function render360View(p) {
       </div>
     </div>
     ${planSec}
+    <!-- Added 2026-11-11 IST by Pranay: patient Timeline (filled by loadPatientTimeline) -->
+    <div class="sp-sec"><h4>Timeline (sale → consultation)</h4><div id="tl-body-${id}"></div></div>
     ${rmSec}
     ${coachSec}
     ${weeklySec}

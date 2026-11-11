@@ -867,6 +867,24 @@ async def get_patient(patient_id: int, db: Session = Depends(get_db)):
     if not p: raise HTTPException(404, "Patient not found")
     return patient_to_dict(p, db)
 
+# Added 2026-11-11 IST by Pranay: read-only audit events for ONE patient, used by the Timeline in the 360 view.
+# Only the milestone-type changes are returned (record created, HP assigned, WC done, coach assigned, status
+# changes). Bulk 'months' saves and free-text edits are left out. Nothing is written.
+_TIMELINE_FIELDS = ("patient_name", "health_partner", "welcome_call_done", "welcome_call_completion_date",
+                    "coach", "status")
+
+@app.get("/api/patients/{patient_id}/timeline-events")
+async def get_patient_timeline_events(patient_id: int, db: Session = Depends(get_db)):
+    p = db.query(Patient).filter(Patient.id == patient_id).first()
+    if not p: raise HTTPException(404, "Patient not found")
+    rows = db.query(AuditLog).filter(AuditLog.patient_id == patient_id,
+                                     AuditLog.field.in_(_TIMELINE_FIELDS)
+                                     ).order_by(AuditLog.id.asc()).limit(300).all()
+    return {"created_at": str(p.created_at) if p.created_at else None, "created_by": p.created_by,
+            "events": [{"timestamp": str(e.timestamp), "user": e.user, "action": e.action,
+                        "section": e.section, "field": e.field,
+                        "old_value": e.old_value, "new_value": e.new_value} for e in rows]}
+
 @app.get("/api/dropdowns")
 async def get_dropdowns(db: Session = Depends(get_db)):
     result = {}
